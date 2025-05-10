@@ -108,6 +108,13 @@ const Register: NextPage = () => {
         return;
       }
 
+      // Clean the token if it ends with /register
+      if (tokenToUse.endsWith('/register')) {
+        const originalToken = tokenToUse;
+        tokenToUse = tokenToUse.substring(0, tokenToUse.length - '/register'.length);
+        console.log(`Cleaned token: removed '/register' from '${originalToken}', new token: '${tokenToUse}'`);
+      }
+
       console.log('Token found, proceeding with validation');
       setTokenForSubmit(tokenToUse); // Save the token for form submission later
       
