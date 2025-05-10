@@ -1,6 +1,23 @@
 import "@/styles/globals.css";
+
 import type { AppProps } from "next/app";
+import { AuthProvider } from "@/context/AuthContext";
+import { Spectral } from 'next/font/google';
+
+const spectral = Spectral({
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-spectral'
+});
 
 export default function App({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />;
+  return (
+    <AuthProvider>
+      <main className={`${spectral.variable}`}>
+         <Component {...pageProps} />
+      </main>
+    </AuthProvider>
+  );
 }
