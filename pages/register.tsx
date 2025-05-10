@@ -266,7 +266,7 @@ const Register: NextPage = () => {
 
     try {
       // Create new user with the invitation email and provided password
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: invitation.email,
         password: data.password,
       });
@@ -289,6 +289,27 @@ const Register: NextPage = () => {
         return;
       }
 
+      const user = signUpData.user;
+      const session = signUpData.session;
+
+      if (!user) {
+        console.error('Sign up successful but no user data returned.');
+        setError('Registration failed: No user data received. Please try again.');
+        // Mark invitation as FAILED
+        await supabase.from('invitations').update({ status: 'FAILED' }).eq('token', tokenForSubmit);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('User signed up successfully:', { id: user.id, email: user.email });
+
+      if (session) {
+        console.log('Session created successfully after signup. User is logged in.');
+        // AuthContext should pick this up via onAuthStateChange
+      } else {
+        console.warn('No session returned after signup. Email confirmation might be pending.');
+      }
+
       // Mark the invitation as used and update status to RESOLVED
       const { error: updateError } = await supabase
         .from('invitations')
@@ -303,39 +324,45 @@ const Register: NextPage = () => {
         // Continue with sign-in despite invitation update error
       }
 
-      // Update the user's profile status to ACTIVE
-      const { data: userResponse, error: suError } = await supabase.auth.getUser();
-      if (suError || !userResponse.user) {
-          console.error('Error getting user after sign up to update profile:', suError);
-      } else {
-        const { error: profileUpdateError } = await supabase
+      // Update the user's profile status to ACTIVE using the user ID from signUpData
+      console.log('Attempting to update profile for user ID:', user.id);
+      const { error: profileUpdateError } = await supabase
         .from('profiles')
         .update({ status: 'ACTIVE' })
-        .eq('id', userResponse.user.id); // Use the actual user ID
+        .eq('id', user.id); // Use the user ID from signUp response
 
-        if (profileUpdateError) {
+      if (profileUpdateError) {
         console.error('Error updating profile status to ACTIVE:', profileUpdateError);
         // Decide if this error is critical enough to halt the process
         // or just log it. For now, logging.
-        } else {
-        console.log('Successfully updated profile status to ACTIVE for user:', userResponse.user.id);
-        }
+      } else {
+        console.log('Successfully updated profile status to ACTIVE for user:', user.id);
       }
 
-      // Sign in the user
-      const { error: signInError } = await signIn(
-        invitation.email,
-        data.password
-      );
+      // If signUp didn't return a session, attempt explicit sign-in.
+      // This will likely fail if email confirmation is pending.
+      if (!session) {
+        console.log('No session from signUp, attempting explicit sign-in.');
+        const { error: signInError } = await signIn(
+          invitation.email,
+          data.password
+        );
 
-      if (signInError) {
-        console.error('Error signing in:', signInError);
-        setError(`Sign-in failed: ${signInError.message}`);
-        setIsLoading(false);
-        return;
+        if (signInError) {
+          console.error('Error signing in after signup:', signInError);
+          setError(`Sign-in failed: ${signInError.message}. Please check your email for a confirmation link if required.`);
+          setIsLoading(false);
+          // Optionally, revert invitation status or handle differently
+          return; // Stop here if sign-in fails
+        }
+        console.log('Explicit sign-in successful.');
+      } else {
+        console.log('Skipping explicit sign-in as session was provided by signUp.');
+        // If AuthContext is set up with onAuthStateChange, it should handle the session from signUp.
       }
 
       // Redirect to the organization's mailroom
+      console.log('Registration and sign-in process complete. Redirecting to /');
       router.push('/');
     } catch (err) {
       console.error('Registration error:', err);
