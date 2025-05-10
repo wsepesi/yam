@@ -114,20 +114,23 @@ const Register: NextPage = () => {
       try {
         // Fetch the invitation details
         setValidationStep('Fetching invitation details...');
-        console.log('Fetching invitation with token:', tokenToUse.substring(0, 10) + '...');
+        console.log('Fetching invitation with token:', tokenToUse);
         
         const { data, error } = await supabase
           .from('invitations')
           .select(`
             email, 
             role,
-            used,
+            status,
             expires_at,
             organization_id,
             mailroom_id
           `)
           .eq('token', tokenToUse)
           .single();
+
+        console.log('Supabase query data:', data);
+        console.log('Supabase query error:', error);
 
         if (error) {
           console.error('Error fetching invitation:', error);
@@ -137,7 +140,7 @@ const Register: NextPage = () => {
         }
 
         if (!data) {
-          console.error('No invitation data found for token');
+          console.error('No invitation data found for token after query. Data object:', data);
           setError('Invitation not found');
           setIsValidating(false);
           return;
@@ -146,7 +149,7 @@ const Register: NextPage = () => {
         console.log('Invitation found:', { ...data, token: '[REDACTED]' });
 
         // Check if invitation is already used
-        if (data.used) {
+        if (data.status !== 'PENDING') {
           console.log('Invitation already used');
           setError('This invitation has already been used');
           setIsValidating(false);
@@ -223,6 +226,16 @@ const Register: NextPage = () => {
           isExpired: isExpired,
         });
 
+        // Update the invitation status to RESOLVED
+        const { error: updateError } = await supabase
+          .from('invitations')
+          .update({ status: 'RESOLVED' })
+          .eq('token', tokenToUse);
+
+        if (updateError) {
+          console.error('Error updating invitation status to RESOLVED:', updateError);
+        }
+        
         console.log('Validation complete, setting isValidating to false');
         setIsValidating(false);
       } catch (err) {

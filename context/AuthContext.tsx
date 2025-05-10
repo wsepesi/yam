@@ -1,6 +1,7 @@
 import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+import Spinner from '@/components/Spinner';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
 
@@ -253,33 +254,59 @@ export const withAuth = <P extends object>(
   const WithAuthComponent = (props: P): React.ReactElement | null => {
     const { userProfile, isLoading, isAuthenticated } = useAuth();
     const router = useRouter();
+    const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
     useEffect(() => {
-      // If not loading and not authenticated, redirect to login
+      let timerId: NodeJS.Timeout | undefined;
+      if (isLoading) {
+        timerId = setTimeout(() => {
+          if (isLoading) {
+            console.warn('withAuth HOC: Loading state timed out. Forcing redirect to login.');
+            setLoadingTimedOut(true);
+          }
+        }, 2000);
+      } else {
+        setLoadingTimedOut(false);
+      }
+
+      return () => {
+        if (timerId) {
+          clearTimeout(timerId);
+        }
+      };
+    }, [isLoading]);
+
+    useEffect(() => {
+      if (loadingTimedOut && isLoading) {
+        router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}&reason=loading_timeout`);
+        return;
+      }
+
       if (!isLoading && !isAuthenticated) {
         router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}`);
         return;
       }
 
-      // If authenticated but role check fails, redirect to unauthorized page
       if (
         !isLoading &&
         isAuthenticated &&
         requiredRole &&
         userProfile?.role !== requiredRole &&
-        // Allow admin to access anything
         userProfile?.role !== 'admin'
       ) {
         router.push('/unauthorized');
       }
-    }, [isLoading, isAuthenticated, router, userProfile]);
+    }, [isLoading, isAuthenticated, userProfile, router, loadingTimedOut]);
 
     if (isLoading) {
-      return <div>Loading...</div>;
+      if (loadingTimedOut) {
+        return null;
+      }
+      return <Spinner />;
     }
 
     if (!isAuthenticated) {
-      return null; // Render nothing while redirecting
+      return null;
     }
 
     if (
@@ -287,7 +314,7 @@ export const withAuth = <P extends object>(
       userProfile?.role !== requiredRole &&
       userProfile?.role !== 'admin'
     ) {
-      return null; // Render nothing while redirecting
+      return null;
     }
 
     return <Component {...props} />;
