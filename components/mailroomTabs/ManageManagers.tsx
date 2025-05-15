@@ -437,22 +437,30 @@ export default function ManageManagers() {
       </div>
 
       {managerToRemove && (
-      <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
-        <AlertDialogContent>
+      <AlertDialog 
+        open={showRemoveConfirm} 
+        onOpenChange={setShowRemoveConfirm}
+      >
+        <AlertDialogContent className="bg-[#fffaf5] border-2 border-[#471803] rounded-none">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will remove manager permissions for {managerToRemove.email}. They will be demoted to a regular user. This action cannot be undone.
+            <AlertDialogTitle className="text-[#471803]">Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#471803]/90">
+              This action will remove manager permissions for {managerToRemove.email}. They will be removed from the mailroom. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowRemoveConfirm(false);
-              setManagerToRemove(null);
-            }}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel 
+              onClick={() => {
+                setShowRemoveConfirm(false);
+                setManagerToRemove(null);
+              }}
+              className="bg-white border border-[#471803]/50 text-[#471803] hover:bg-[#ffeedd] rounded-none"
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmRemoveManager}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-none"
             >
               Confirm Removal
             </AlertDialogAction>

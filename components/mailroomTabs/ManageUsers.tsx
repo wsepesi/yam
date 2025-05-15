@@ -446,23 +446,31 @@ const ManageUsers: React.FC = () => {
       </div>
 
       {userToRemove && (
-        <AlertDialog open={showRemoveUserConfirm} onOpenChange={setShowRemoveUserConfirm}>
-          <AlertDialogContent>
+        <AlertDialog
+          open={showRemoveUserConfirm}
+          onOpenChange={setShowRemoveUserConfirm}
+        >
+          <AlertDialogContent className="bg-[#fffaf5] border-2 border-[#471803] rounded-none">
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="text-[#471803]">Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription className="text-[#471803]/90">
                 This action will remove user {userToRemove.email} from this mailroom. Their status will be set to &apos;REMOVED&apos;. This action cannot be undone directly from this interface.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => {
-                setShowRemoveUserConfirm(false);
-                setUserToRemove(null);
-              }}>Cancel</AlertDialogCancel>
+            <AlertDialogFooter className="mt-4">
+              <AlertDialogCancel
+                onClick={() => {
+                  setShowRemoveUserConfirm(false);
+                  setUserToRemove(null);
+                }}
+                className="bg-white border border-[#471803]/50 text-[#471803] hover:bg-[#ffeedd] rounded-none"
+              >
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={confirmRemoveUser}
                 disabled={isSubmitting}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-red-600 hover:bg-red-700 text-white rounded-none"
               >
                 {isSubmitting ? 'Removing...' : 'Confirm Removal'}
               </AlertDialogAction>
