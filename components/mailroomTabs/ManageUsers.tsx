@@ -1,3 +1,14 @@
+import { AlertCircle, Check, Trash2, X } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import React, { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +49,8 @@ const ManageUsers: React.FC = () => {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [mailroomId, setMailroomId] = useState<string | null>(null);
+  const [showRemoveUserConfirm, setShowRemoveUserConfirm] = useState(false);
+  const [userToRemove, setUserToRemove] = useState<User | null>(null);
   
   // Fetch organization and mailroom details
   useEffect(() => {
@@ -153,6 +166,10 @@ const ManageUsers: React.FC = () => {
       
       setSuccess(`Invitation sent to ${email}`);
       setEmail('');
+      // Refresh users and invitations after sending invite
+      if (mailroomId && session) {
+        fetchUsersAndInvitations();
+      }
     } catch (err) {
       console.error('Error sending invitation:', err);
       setError('An unexpected error occurred');
@@ -160,6 +177,100 @@ const ManageUsers: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  const promptRemoveUser = (user: User) => {
+    // Prevent admins or managers from being removed from this simplified user management UI
+    // They should be managed in ManageManagers if applicable
+    if (user.role === 'admin' || user.role === 'manager') {
+        setError('Admins and Managers cannot be removed from this interface. Please use the Manage Managers tab for managers.');
+        setSuccess(null);
+        return;
+    }
+    setUserToRemove(user);
+    setShowRemoveUserConfirm(true);
+  };
+
+  const confirmRemoveUser = async () => {
+    if (!userToRemove || !session || !mailroomId) {
+      setError('Required information is missing to remove the user.');
+      setShowRemoveUserConfirm(false);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/users/${userToRemove.id}/status`, { // Assuming this endpoint updates user status
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          status: 'REMOVED',
+          mailroomId: mailroomId // Include mailroomId if API requires it to scope the status change
+        }),
+      });
+
+      if (response.ok) {
+        setUsers(prevUsers => prevUsers.filter(user => user.id !== userToRemove.id));
+        setSuccess(`User ${userToRemove.email} removed successfully.`);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to remove user.');
+      }
+    } catch (err) {
+      console.error('Error removing user:', err);
+      setError('An unexpected error occurred while removing the user.');
+    } finally {
+      setIsSubmitting(false);
+      setShowRemoveUserConfirm(false);
+      setUserToRemove(null);
+    }
+  };
+  
+  const fetchUsersAndInvitations = async () => { // Renamed from fetchUsers for clarity
+    if (!mailroomId || !session) return;
+
+    setLoading(true);
+    try {
+      // Fetch active users
+      const usersResponse = await fetch(`/api/users/mailroom?mailroomId=${mailroomId}&status=ACTIVE`, { // Ensure we only fetch active users initially
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (!usersResponse.ok) throw new Error((await usersResponse.json()).error || 'Failed to fetch users');
+      const usersData = await usersResponse.json();
+      setUsers(usersData.users || []); // Assuming API returns { users: [] }
+
+      // Fetch pending user invitations
+      const invitationsResponse = await fetch(`/api/invitations?mailroomId=${mailroomId}&role=user&status=PENDING`, { // Fetch only PENDING user invitations
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (!invitationsResponse.ok) throw new Error((await invitationsResponse.json()).error || 'Failed to fetch invitations');
+      const invitationsData = await invitationsResponse.json();
+      setInvitations(invitationsData || []); // Assuming API returns an array directly or { invitations: [] }
+      
+    } catch (err: unknown) {
+      console.error('Error fetching users or invitations:', err);
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to load data.');
+      } else {
+        setError('An unknown error occurred while fetching data.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // useEffect to call fetchUsersAndInvitations
+  useEffect(() => {
+    if (mailroomId && session) {
+      fetchUsersAndInvitations();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mailroomId, session]); // Removed 'success' from deps to avoid re-fetching on every success message. Fetch is explicit after invite.
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -175,14 +286,22 @@ const ManageUsers: React.FC = () => {
           <h3 className="text-lg font-medium text-[#471803]">Invite New User</h3>
           
           {error && (
-            <div className="p-2 bg-red-100 border border-red-400 text-red-700 text-sm max-w-[60%]">
-              {error}
+            <div className="flex items-center space-x-2 p-2 bg-red-100 border border-red-400 text-red-700 text-sm max-w-[60%]">
+              <AlertCircle size={16} />
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="ml-auto">
+                <X size={16} />
+              </button>
             </div>
           )}
           
           {success && (
-            <div className="p-2 bg-green-100 border border-green-400 text-green-700 text-sm max-w-[60%]">
-              {success}
+            <div className="flex items-center space-x-2 p-2 bg-green-100 border border-green-400 text-green-700 text-sm max-w-[60%]">
+              <Check size={16} />
+              <span>{success}</span>
+              <button onClick={() => setSuccess(null)} className="ml-auto">
+                <X size={16} />
+              </button>
             </div>
           )}
         </div>
@@ -291,6 +410,7 @@ const ManageUsers: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
                       <th className="px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Role</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Joined</th>
+                      <th className="pl-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider"></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-[#471803]/10">
@@ -301,6 +421,18 @@ const ManageUsers: React.FC = () => {
                         </td>
                         <td className="px-2 py-4 whitespace-nowrap text-sm text-[#471803] capitalize">{user.role}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(user.created_at)}</td>
+                        <td className="pl-3 py-4 whitespace-nowrap text-sm text-[#471803]">
+                          {user.role === 'user' && ( // Only show remove for 'user' role
+                            <Button
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1"
+                              onClick={() => promptRemoveUser(user)}
+                              disabled={isSubmitting}
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -312,6 +444,32 @@ const ManageUsers: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {userToRemove && (
+        <AlertDialog open={showRemoveUserConfirm} onOpenChange={setShowRemoveUserConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action will remove user {userToRemove.email} from this mailroom. Their status will be set to &apos;REMOVED&apos;. This action cannot be undone directly from this interface.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowRemoveUserConfirm(false);
+                setUserToRemove(null);
+              }}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmRemoveUser}
+                disabled={isSubmitting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isSubmitting ? 'Removing...' : 'Confirm Removal'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 };

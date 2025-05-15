@@ -13,6 +13,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabaseAdmin = createAdminClient()
     const authHeader = req.headers.authorization;
     const userId = await getUserId(supabaseAdmin, authHeader)
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or missing user session.' });
+    }
+    
     // Get required parameters from request query
     const { mailroomId } = req.query;
 

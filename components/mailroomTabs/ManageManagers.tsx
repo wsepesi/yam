@@ -1,4 +1,14 @@
 import { AlertCircle, Check, Trash2, X } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import React, { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -39,6 +49,8 @@ export default function ManageManagers() {
   const [isLoading, setIsLoading] = useState(true);
   const [mailroomId, setMailroomId] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [managerToRemove, setManagerToRemove] = useState<Manager | null>(null);
 
   useEffect(() => {
     const fetchMailroomDetails = async () => {
@@ -181,44 +193,52 @@ export default function ManageManagers() {
   };
 
   const handleRemoveManager = async (managerId: string) => {
+    const manager = managers.find(m => m.id === managerId);
+    if (manager) {
+      if (manager.role === 'admin') {
+        setError('Admin users cannot be removed.');
+        setSuccess(null);
+        return;
+      }
+      setManagerToRemove(manager);
+      setShowRemoveConfirm(true);
+    } else {
+      setError('Manager not found.');
+      setSuccess(null);
+    }
+  };
+
+  const confirmRemoveManager = async () => {
+    if (!managerToRemove) return;
+
     // Add check for valid managerId
-    if (!managerId) {
+    if (!managerToRemove.id) {
       setError('Invalid manager ID provided. Cannot remove manager.');
       setSuccess(null);
+      setShowRemoveConfirm(false);
       return;
     }
 
     try {
       if (!session) {
         setError('You must be logged in to remove managers');
-        // setIsSubmitting(false); // Consider removing if setIsSubmitting is not used here or set to false in a finally block
-        return;
-      }
-
-      // Find the manager to check their role
-      const managerToRemove = managers.find(manager => manager.id === managerId);
-
-      if (managerToRemove && managerToRemove.role === 'admin') {
-        setError('Admin users cannot be removed.');
-        setSuccess(null); // Clear any previous success message
+        setShowRemoveConfirm(false);
         return;
       }
 
       // If mailroomId is not available, prevent the action.
-      // This check might be redundant if mailroomId is always expected to be present
-      // when this component is active and this function is callable.
-      // However, adding it for robustness if that's a concern.
       if (!mailroomId) {
         setError('Mailroom information is missing. Cannot remove manager.');
         setSuccess(null);
+        setShowRemoveConfirm(false);
         return;
       }
 
-      setIsSubmitting(true); // Set submitting state at the beginning of the async operation
+      setIsSubmitting(true);
       setError(null);
       setSuccess(null);
 
-      const response = await fetch(`/api/managers/${managerId}`, {
+      const response = await fetch(`/api/managers/${managerToRemove.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +252,7 @@ export default function ManageManagers() {
       
       if (response.ok) {
         setManagers(prev => 
-          prev.filter(manager => manager.id !== managerId)
+          prev.filter(manager => manager.id !== managerToRemove.id)
         );
         setSuccess('Manager removed successfully');
       } else {
@@ -244,6 +264,8 @@ export default function ManageManagers() {
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false); // Ensure isSubmitting is reset regardless of outcome
+      setShowRemoveConfirm(false);
+      setManagerToRemove(null);
     }
   };
 
@@ -413,6 +435,31 @@ export default function ManageManagers() {
           </div>
         </div>
       </div>
+
+      {managerToRemove && (
+      <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will remove manager permissions for {managerToRemove.email}. They will be demoted to a regular user. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowRemoveConfirm(false);
+              setManagerToRemove(null);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveManager}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Confirm Removal
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      )}
     </div>
   );
 } 

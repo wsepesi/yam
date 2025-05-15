@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createAdminClient, supabase } from '@/lib/supabase';
 
+import { createAdminClient } from '@/lib/supabase';
 import getUserId from '@/lib/handleSession';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -13,6 +13,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabaseAdmin = createAdminClient()
     const authHeader = req.headers.authorization;
     const userId = await getUserId(supabaseAdmin, authHeader)
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or missing user session.' });
+    }
 
     // Get manager ID from URL and role from request body
     const { id } = req.query;
@@ -33,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch current user's profile to check permissions
-    const { data: userProfile, error: profileError } = await supabase
+    const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role, organization_id, mailroom_id')
       .eq('id', userId)
@@ -49,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch the target manager's profile
-    const { data: managerProfile, error: managerError } = await supabase
+    const { data: managerProfile, error: managerError } = await supabaseAdmin
       .from('profiles')
       .select('role, organization_id, mailroom_id')
       .eq('id', id)
@@ -76,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Update the manager's role and/or status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('profiles')
       .update(updateData)
       .eq('id', id);
@@ -84,6 +88,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (updateError) {
       console.error('Error updating manager profile:', updateError);
       return res.status(500).json({ error: 'Failed to update manager profile' });
+    }
+
+    // If status is REMOVED, delete the user from the auth table
+    if (status === 'REMOVED') {
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(id as string);
+      if (deleteError) {
+        console.error('Error deleting user from auth table:', deleteError);
+        return res.status(500).json({ error: 'Failed to delete user from auth table' });
+      }
     }
 
     return res.status(200).json({ message: 'Manager profile updated successfully' });
