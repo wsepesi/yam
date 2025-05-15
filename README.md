@@ -1,12 +1,10 @@
 # Yam
 
-## Getting Started
+a simple mailroom management platform.
 
-First, run the development server:
+For dev:
 
 ```bash
 pnpm i
 pnpm dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
