@@ -36,8 +36,8 @@ interface DbInvitationRecord {
   organization_id: string;
   mailroom_id: string;
   // Revert to array type to align with Supabase client's general typing for related tables
-  organizations?: { name: string } | null;
-  mailrooms?: { name: string } | null;
+  organizations?: { name: string; slug: string } | null;
+  mailrooms?: { name: string; slug: string } | null;
 }
 
 // Define possible statuses for the component
@@ -130,8 +130,8 @@ const Register: NextPage = () => {
           .from('invitations')
           .select(`
             id, email, role, status, expires_at, organization_id, mailroom_id,
-            organizations ( name ),
-            mailrooms ( name )
+            organizations ( name, slug ),
+            mailrooms ( name, slug )
           `)
           .eq('id', invitationId)
           .single();
@@ -273,8 +273,23 @@ const Register: NextPage = () => {
         console.log('onSubmit: AuthContext profile refreshed.');
       }
 
+      // Validate that slugs exist before attempting redirection
+      if (!fetchedDbInvite.organizations || !fetchedDbInvite.organizations.slug) {
+        console.error('onSubmit: Organization slug is missing.');
+        setError('Critical data missing for redirection (organization slug). Please contact support.');
+        setStatus('error'); // Or 'ready_for_password' if you want to allow retry without re-fetching invite
+        return;
+      }
+
+      if (!fetchedDbInvite.mailrooms || !fetchedDbInvite.mailrooms.slug) {
+        console.error('onSubmit: Mailroom slug is missing.');
+        setError('Critical data missing for redirection (mailroom slug). Please contact support.');
+        setStatus('error'); // Or 'ready_for_password'
+        return;
+      }
+
       console.log('onSubmit: Registration complete. Redirecting to dashboard...');
-      router.push(`/${fetchedDbInvite.organization_id}/${fetchedDbInvite.mailroom_id}/`); // Or '/dashboard' or similar
+      router.push(`/${fetchedDbInvite.organizations.slug}/${fetchedDbInvite.mailrooms.slug}/`);
 
     } catch (err) {
       console.error('onSubmit: Registration submission error:', err);
