@@ -28,6 +28,7 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<{
     error: Error | null;
     success: boolean;
+    userProfile?: UserProfile | null;
   }>;
   signOut: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<{
@@ -38,6 +39,7 @@ type AuthState = {
     error: Error | null;
     success: boolean;
   }>;
+  refreshUserProfile: () => Promise<UserProfile | null>;
 };
 
 // Create the context with a default value
@@ -47,10 +49,11 @@ const AuthContext = createContext<AuthState>({
   userProfile: null,
   isLoading: true,
   isAuthenticated: false,
-  signIn: async () => ({ error: null, success: false }),
+  signIn: async () => ({ error: null, success: false, userProfile: null }),
   signOut: async () => {},
   signUp: async () => ({ error: null, success: false }),
   resetPassword: async () => ({ error: null, success: false }),
+  refreshUserProfile: async () => null,
 });
 
 // Auth provider component
@@ -82,6 +85,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('AuthContext: Exception fetching user profile', error);
       return null;
     }
+  };
+
+  // Function to explicitly refresh the user profile
+  const refreshUserProfile = async () => {
+    if (user?.id) {
+      console.log('AuthContext: Explicitly refreshing user profile for ID:', user.id);
+      setIsLoading(true); // Indicate loading during refresh
+      const profile = await fetchUserProfile(user.id);
+      setUserProfile(profile);
+      setIsLoading(false);
+      console.log('AuthContext: User profile refresh complete', { hasProfile: !!profile });
+      return profile; // Optionally return the profile
+    }
+    console.log('AuthContext: refreshUserProfile called but no user ID available.');
+    return null;
   };
 
   // Setup the auth state listener
@@ -118,8 +136,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (event === 'SIGNED_OUT') {
           setUserProfile(null);
         } else if (event === 'USER_UPDATED' && currentSession?.user) {
-          const profile = await fetchUserProfile(currentSession.user.id);
-          setUserProfile(profile);
+          // const profile = await fetchUserProfile(currentSession.user.id);
+          // setUserProfile(profile);
+          // Instead of auto-fetching, we now expect an explicit call to refreshUserProfile
+          // if the profile data needs to be updated in the context after a user update.
+          // This helps avoid race conditions and potential deadlocks as per Supabase guidance.
+          console.log('AuthContext: USER_UPDATED event received for user:', currentSession.user.id, '. Profile refresh should be handled explicitly if needed.');
         }
 
         setIsLoading(false);
@@ -133,7 +155,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Auth methods
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<{
+    error: Error | null;
+    success: boolean;
+    userProfile?: UserProfile | null;
+  }> => {
     try {
       console.log('AuthContext: Starting sign in process');
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -144,35 +170,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('AuthContext: Sign in error from Supabase:', error);
-        return { error, success: false };
+        return { error, success: false, userProfile: null };
       }
 
       // Fetch the profile on successful sign in
+      let fetchedProfile: UserProfile | null = null;
       if (data.user) {
         console.log('AuthContext: Sign in successful, fetching user profile');
-        const profile = await fetchUserProfile(data.user.id);
-        console.log('AuthContext: User profile fetch complete', { hasProfile: !!profile });
+        fetchedProfile = await fetchUserProfile(data.user.id);
+        console.log('AuthContext: User profile fetch complete', { hasProfile: !!fetchedProfile });
 
         // Check if the user's status is 'REMOVED'
-        if (profile && profile.status === 'REMOVED') {
+        if (fetchedProfile && fetchedProfile.status === 'REMOVED') {
           console.warn('AuthContext: User status is REMOVED. Access denied.', { userId: data.user.id });
           await supabase.auth.signOut(); // Sign the user out
           setSession(null);
           setUser(null);
           setUserProfile(null);
-          // It's important not to set isLoading to false here yet if a redirect or further state change is pending.
-          // However, for a denied login, we should reflect this state.
-          return { error: new Error('Your access has been revoked.'), success: false };
+          return { error: new Error('Your access has been revoked.'), success: false, userProfile: null };
         }
 
-        setUserProfile(profile);
+        // Set the profile state within the context
+        setUserProfile(fetchedProfile);
       }
 
       console.log('AuthContext: Sign in process completed successfully');
-      return { error: null, success: true };
+      // Return the fetched profile along with success status
+      return { error: null, success: true, userProfile: fetchedProfile };
     } catch (error) {
       console.error('AuthContext: Unexpected error during sign in:', error);
-      return { error: error as Error, success: false };
+      return { error: error as Error, success: false, userProfile: null };
     }
   };
 
@@ -232,6 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     signUp,
     resetPassword,
+    refreshUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

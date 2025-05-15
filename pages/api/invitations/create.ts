@@ -4,7 +4,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
 import { createAdminClient } from '@/lib/supabase';
-import crypto from 'crypto';
 import getUserId from '@/lib/handleSession';
 
 // Number of days until invitation expires
@@ -63,9 +62,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid mailroom' });
     }
 
-    // Generate secure random token
-    const invitationToken = crypto.randomBytes(32).toString('hex');
-
     // Set expiration date
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + INVITATION_EXPIRY_DAYS);
@@ -79,7 +75,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         organization_id: organizationId,
         mailroom_id: mailroomId,
         invited_by: userId,
-        token: invitationToken,
         expires_at: expiresAt.toISOString(),
         used: false,
         status: 'PENDING'
@@ -94,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Generate the invitation URL
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const invitationUrl = `${baseUrl}/register?token=${invitationToken}`;
+    const invitationUrl = `${baseUrl}` //`{baseUrl}/register`;
 
     // Send the invitation email using Supabase's email functions
     // Note: admin.inviteUserByEmail might require admin rights 

@@ -9,6 +9,7 @@ import Layout from '@/components/Layout';
 import { NextPage } from 'next';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext'; // Import useAuth
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/router';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,37 +27,35 @@ const formSchema = z.object({
 
 type RegisterFormValues = z.infer<typeof formSchema>;
 
-interface InvitationData {
+interface DbInvitationRecord {
+  id: string;
   email: string;
-  organizationName: string;
-  mailroomName: string;
   role: string;
-  isExpired: boolean;
+  status: string;
+  expires_at: string; // Consider validating expiry if needed
+  organization_id: string;
+  mailroom_id: string;
+  // Revert to array type to align with Supabase client's general typing for related tables
+  organizations?: { name: string } | null;
+  mailrooms?: { name: string } | null;
 }
 
-// Type for the raw record fetched from the 'invitations' table
-interface DbInvitationRecord {
-  email: string;
-  role: string;
-  status: string; 
-  expires_at: string; 
-  organization_id: string; 
-  mailroom_id: string; 
-}
+// Define possible statuses for the component
+type RegistrationStatus =
+  | 'checking_session'
+  | 'validating_invite'
+  | 'invalid_invite' // For errors during validation (bad link, expired, used)
+  | 'ready_for_password'
+  | 'submitting'
+  | 'error'; // General errors, e.g., during submission
 
 const Register: NextPage = () => {
   const router = useRouter();
-  const { token: queryToken } = router.query;
-  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<RegistrationStatus>('checking_session');
   const [error, setError] = useState<string | null>(null);
-  const [invitation, setInvitation] = useState<InvitationData | null>(null);
-  const [isValidating, setIsValidating] = useState(true);
-  const [validationStep, setValidationStep] = useState<string>('Initializing validation...');
-  
-  // New states for the revised flow
-  const [rawInviteToken, setRawInviteToken] = useState<string | null>(null);
-  const [fetchedDbInvite, setFetchedDbInvite] = useState<DbInvitationRecord | null>(null); 
+  const [fetchedDbInvite, setFetchedDbInvite] = useState<DbInvitationRecord | null>(null);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
+  const { refreshUserProfile } = useAuth(); // Get refreshUserProfile from context
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(formSchema),
@@ -66,245 +65,161 @@ const Register: NextPage = () => {
     },
   });
 
+  // Effect to manage auth state
   useEffect(() => {
+    if (status === 'submitting') {
+      return;
+    }
     const { data: authListenerData } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth State Change:', event, session ? { userEmail: session.user?.email, eventType: event } : 'No session');
+
+      // Handle initial session load or explicit sign-in
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
-        setSessionUser(session.user);
+         // Set user only if it's null or different
+        if (!sessionUser || sessionUser.id !== session.user.id) {
+           setSessionUser(session.user);
+           // Reset status ONLY if we weren't already processing/submitting
+           if (status !== 'ready_for_password') {
+               setStatus('checking_session');
+           }
+        }
       } else if (event === 'SIGNED_OUT') {
+        // Handle sign-out
         setSessionUser(null);
+        setFetchedDbInvite(null); // Clear invite details on sign out
+        setStatus('checking_session');
+        setError('Session ended. Please log in again if needed.');
+      } else if (event === 'USER_UPDATED') {
+          // User updated (e.g., password change).
+          // Per Supabase docs, avoid doing much here synchronously, especially other Supabase calls or complex state logic,
+          // to prevent deadlocks with the async function that triggered the update (onSubmit).
+          console.log('User updated event received. Minimal handling in listener.');
+          // Avoid setting state or calling other Supabase functions here to prevent potential deadlocks.
+          // We rely on the onSubmit function to continue its execution after the await updateUser resolves.
+          // If absolutely necessary to update the user object globally *after* the event,
+          // consider using the setTimeout pattern suggested in docs, but it might not be needed here.
+          // if (session?.user && (!sessionUser || sessionUser.id === session.user.id)) {
+          //     setSessionUser(session.user); // Temporarily disable this state update
+          // }
       }
     });
 
-    const validateFlow = async () => {
-      // This function will now be called reactively based on state changes.
-      // Set isValidating true at the start of the component's lifecycle (useState(true))
-      // and only set to false on completion or terminal error.
-
-      // Stage 1: Token Extraction
-      let currentToken = rawInviteToken;
-      if (!currentToken && router.isReady) {
-        setValidationStep('Checking invitation token...');
-        let tokenToUse: string | null = null;
-
-        if (typeof queryToken === 'string' && queryToken) {
-          console.log('Using token from query params');
-          tokenToUse = queryToken;
-        } else if (typeof window !== 'undefined') {
-          const hash = window.location.hash;
-          if (hash) {
-            console.log('Found hash in URL:', hash.substring(0, 15) + '...');
-            const hashParams = new URLSearchParams(hash.substring(1));
-            const accessToken = hashParams.get('access_token');
-            const tokenType = hashParams.get('type');
-
-            if (accessToken && tokenType === 'invite') {
-              console.log('Found invite token (access_token with type=invite) in hash fragment');
-              tokenToUse = accessToken; // Supabase client uses this to establish session
-            } else if (accessToken) {
-              console.log('Found access_token in hash, type was:', tokenType);
-              // If it's an access token but not type=invite, it might be a regular session token.
-              // For this page, we're primarily interested in invite tokens.
-              // However, Supabase client will establish a session if it's a valid access token.
-              // The raw token for DB lookup might be different or not present.
-              // This flow assumes the invite link contains a token that can also be used to look up the invite.
-              // Often, the `access_token` itself provided on an invite link *is* the invite token.
-              tokenToUse = accessToken; 
-            } else {
-              const altToken = hashParams.get('token') || hashParams.get('invite_token');
-              if (altToken) {
-                console.log('Found alternative token in hash');
-                tokenToUse = altToken;
-              }
-            }
-          }
-        }
-
-        if (tokenToUse && tokenToUse.endsWith('/register')) {
-          const originalToken = tokenToUse;
-          tokenToUse = tokenToUse.substring(0, tokenToUse.length - '/register'.length);
-          console.log(`Cleaned token: removed '/register' from '${originalToken}', new token: '${tokenToUse}'`);
-        }
-        
-        if (tokenToUse) {
-          console.log('Raw invite token identified:', tokenToUse ? tokenToUse.substring(0,15) + "..." : "null");
-          setRawInviteToken(tokenToUse);
-          currentToken = tokenToUse;
-        } else {
-          console.error('No valid invitation token found in URL or hash.');
-          setError('Invalid invitation link: No token found.');
-          setIsValidating(false);
-          return;
-        }
-      } else if (!currentToken && !router.isReady) {
-        console.log('Router not ready for token extraction. Waiting...');
-        setValidationStep('Waiting for page to load...');
-        return; // Wait for router.isReady or rawInviteToken to be set
-      } else if (!currentToken) {
-        // This case should ideally be covered by the above, but as a fallback:
-        setError('Cannot proceed without an invitation token.');
-        setIsValidating(false);
-        return;
-      }
-
-      // Stage 2: Fetch DB Invitation details
-      let currentDbInvite = fetchedDbInvite;
-      if (currentToken && !currentDbInvite) {
-        setValidationStep('Fetching invitation details...');
-        console.log('Fetching invitation with token:', currentToken ? currentToken.substring(0,15) + "..." : "null");
-        try {
-          const { data, error: dbError } = await supabase
-            .from('invitations')
-            .select('email, role, status, expires_at, organization_id, mailroom_id')
-            .eq('token', currentToken)
-            .single();
-
-          console.log('Supabase query data for invitation:', data);
-          console.log('Supabase query error for invitation:', dbError);
-
-          if (dbError) {
-            console.error('Error fetching invitation:', dbError);
-            setError(`Invitation error: ${dbError.message || 'Failed to fetch invitation'}`);
-            setIsValidating(false);
-            return;
-          }
-          if (!data) {
-            console.error('No invitation data found for token.');
-            setError('Invitation not found or already used/invalid.');
-            setIsValidating(false);
-            return;
-          }
-          if (data.status !== 'PENDING') {
-            console.log('Invitation status is not PENDING:', data.status);
-            setError(data.status === 'RESOLVED' || data.status === 'USED' ? 'This invitation has already been used.' : `This invitation is ${data.status.toLowerCase()}.`);
-            setIsValidating(false);
-            return;
-          }
-          const now = new Date();
-          const expiresAt = new Date(data.expires_at);
-          if (now > expiresAt) {
-            console.log('Invitation expired', { expires: data.expires_at, now: now.toISOString() });
-            setError('This invitation has expired.');
-            setIsValidating(false);
-            return;
-          }
-          console.log('DB Invitation data fetched and initially validated:', data.email);
-          setFetchedDbInvite(data);
-          currentDbInvite = data;
-        } catch (err) {
-          console.error('Exception fetching invitation:', err);
-          setError(`Validation failed: ${err instanceof Error ? err.message : 'Unknown error during DB fetch'}`);
-          setIsValidating(false);
-          return;
-        }
-      } else if (!currentDbInvite && currentToken) {
-         // Waiting for DB fetch to complete if token is present
-        setValidationStep('Fetching invitation details...');
-        return;
-      } else if (!currentToken) {
-        // Should not happen if Stage 1 logic is correct and leads to setting rawInviteToken or error.
-        // If it does, means we are stuck without a token.
-        return;
-      }
-
-
-      // Stage 3: Check Session User and Finalize
-      if (currentDbInvite && sessionUser) {
-        console.log('DB invite and session user available. Comparing emails:', currentDbInvite.email, sessionUser.email);
-        if (currentDbInvite.email === sessionUser.email) {
-          setValidationStep('Fetching organization & mailroom details...');
-          let organizationName = 'Unknown Organization';
-          try {
-            const orgResponse = await supabase.from('organizations').select('name').eq('id', currentDbInvite.organization_id).single();
-            if (orgResponse.error) console.error('Error fetching organization:', orgResponse.error);
-            else if (orgResponse.data) organizationName = orgResponse.data.name;
-          } catch (orgErr) { console.error('Exception fetching organization:', orgErr); }
-
-          let mailroomName = 'Unknown Mailroom';
-          try {
-            const mailroomResponse = await supabase.from('mailrooms').select('name').eq('id', currentDbInvite.mailroom_id).single();
-            if (mailroomResponse.error) console.error('Error fetching mailroom:', mailroomResponse.error);
-            else if (mailroomResponse.data) mailroomName = mailroomResponse.data.name;
-          } catch (mailroomErr) { console.error('Exception fetching mailroom:', mailroomErr); }
-          
-          const finalInvitationData: InvitationData = {
-            email: currentDbInvite.email,
-            organizationName,
-            mailroomName,
-            role: currentDbInvite.role,
-            isExpired: new Date() > new Date(currentDbInvite.expires_at),
-          };
-
-          if (finalInvitationData.isExpired) {
-            setError('This invitation has expired.');
-            setIsValidating(false);
-            return;
-          }
-          
-          setInvitation(finalInvitationData);
-          setError(null); // Clear any previous transient errors
-          setIsValidating(false);
-          console.log('Validation successful. Ready for password set for user:', finalInvitationData.email);
-        } else {
-          console.error('Session user email does not match invitation email.');
-          setError('Your current session email does not match the invited email. Please ensure you are using the correct link or try in an incognito window.');
-          // Clear states to allow potential retry if URL changes or user logs out and back in with correct account.
-          setInvitation(null);
-          setFetchedDbInvite(null); 
-          // setRawInviteToken(null); // Careful: might cause loop if queryToken is still there.
-                                  // Let user refresh or use new link if this happens.
-          setIsValidating(false);
-        }
-      } else if (currentDbInvite && !sessionUser) {
-        // DB invite details are ready, but session is not yet confirmed for this user.
-        // Supabase client should be handling the token from URL to establish session.
-        // onAuthStateChange will update sessionUser and trigger a re-run.
-        console.log('DB invite details fetched. Waiting for user session to be confirmed for:', currentDbInvite.email);
-        setValidationStep(`Confirming your session for ${currentDbInvite.email}...`);
-        // isValidating remains true.
-      } else if (!currentDbInvite && currentToken) {
-        // Token present, but DB details not fetched yet (should be handled by stage 2 logic or its return)
-        // This state means Stage 2 is in progress or failed to setFetchedDbInvite.
-        // If Stage 2 errored, isValidating would be false. So this means Stage 2 is pending.
-        setValidationStep('Fetching invitation data...');
-      }
-      // If none of the above conditions for completion or error are met, isValidating remains true.
+    return () => {
+      authListenerData?.subscription?.unsubscribe();
     };
-    
-    // Call validateFlow if we are in a state where it might make progress.
-    // It's reactive to changes in its dependencies.
-    if (isValidating || (!rawInviteToken && router.isReady && !error)) {
-        validateFlow();
+  }, [sessionUser, status]); 
+
+  // Effect to run validation once the session user is available
+  useEffect(() => {
+    const validateInvitation = async (user: User) => {
+      setStatus('validating_invite');
+      setError(null); // Clear previous errors
+
+      const invitationId = user.user_metadata?.invitation_id;
+      if (!invitationId) {
+        console.error('Invitation ID not found in user metadata.');
+        setError('Your account is missing the required invitation details. Please contact support.');
+        setStatus('invalid_invite');
+        return;
+      }
+
+      try {
+        console.log(`Fetching invitation with ID: ${invitationId}`);
+        // Fetch invitation and related names
+        const { data, error: dbError } = await supabase
+          .from('invitations')
+          .select(`
+            id, email, role, status, expires_at, organization_id, mailroom_id,
+            organizations ( name ),
+            mailrooms ( name )
+          `)
+          .eq('id', invitationId)
+          .single();
+
+        if (dbError) {
+          console.error('Error fetching invitation:', dbError);
+          setError(`Failed to retrieve invitation details: ${dbError.message}`);
+          setStatus('invalid_invite');
+          return;
+        }
+
+        if (!data) {
+            console.error('No invitation found for ID:', invitationId);
+            setError('Invitation not found. This link may be invalid.');
+            setStatus('invalid_invite');
+            return;
+        }
+
+        // Check user email against invitation email
+        if (user.email !== data.email) {
+            console.warn(`Session email (${user.email}) does not match invitation email (${data.email})`);
+            setError('You are logged in with a different email than the one invited. Please use the correct account or contact support.');
+            setStatus('invalid_invite');
+            return;
+        }
+
+        if (data.status !== 'PENDING') {
+          console.log('Invitation status is not PENDING:', data.status);
+          const message = data.status === 'RESOLVED' || data.status === 'USED'
+            ? 'This invitation has already been used.'
+            : data.status === 'EXPIRED'
+            ? 'This invitation has expired.'
+            : data.status === 'CANCELLED'
+            ? 'This invitation has been cancelled.'
+            : `This invitation is in an invalid state (${data.status.toLowerCase()}).`;
+          setError(message);
+          setStatus('invalid_invite');
+          return;
+        }
+
+        // TODO: Optionally check expires_at here
+        // const expiryDate = new Date(data.expires_at);
+        // if (expiryDate < new Date()) {
+        //   setError('This invitation has expired.');
+        //   setStatus('invalid_invite');
+        //   // Optionally update status in DB to EXPIRED
+        //   return;
+        // }
+
+        console.log('Invitation validated successfully:', data);
+        setFetchedDbInvite(data as unknown as DbInvitationRecord);
+        setStatus('ready_for_password');
+
+      } catch (err) {
+        console.error('Exception during invitation validation:', err);
+        setError(`Validation failed unexpectedly: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        setStatus('error'); // Use general error for unexpected issues
+      }
+    };
+
+    // Trigger validation only when we have a user and are in the initial state
+    if (sessionUser && status === 'checking_session') {
+      validateInvitation(sessionUser);
     }
 
-    return () => {
-      // Correctly access the subscription object
-      if (authListenerData && authListenerData.subscription) {
-        authListenerData.subscription.unsubscribe();
-      } else {
-        // Fallback if the structure is different or it's null (though Supabase docs imply data.subscription)
-        // This case should ideally not be hit if types are aligned with library version.
-        console.warn('Could not unsubscribe from auth listener: subscription object not found as expected.');
-      }
-    };
-  }, [router.isReady, queryToken, rawInviteToken, fetchedDbInvite, sessionUser, isValidating, error]);
-
+    // Dependency array: React to sessionUser changes and ensure validation runs when status is 'checking_session'
+  }, [sessionUser, status]);
 
   const onSubmit = async (formData: RegisterFormValues) => {
-    if (!invitation || !sessionUser || !rawInviteToken) {
-      setError('Cannot submit form: Invitation details or session is missing. Please refresh.');
+    if (!fetchedDbInvite || !sessionUser) {
+      setError('Cannot submit: Missing invitation details or user session. Please refresh.');
+      setStatus('error'); // Indicate a state inconsistency
       return;
     }
-    if (sessionUser.email !== invitation.email) {
+     if (sessionUser.email !== fetchedDbInvite.email) {
       setError('Session email mismatch. Please ensure you are logged in with the invited email.');
+      setStatus('ready_for_password'); // Revert to form state
       return;
     }
 
-    setIsLoading(true);
+    setStatus('submitting');
     setError(null);
 
+    // Use a stable reference to the user for the duration of the submit function
+    const currentUser = sessionUser;
+
     try {
-      console.log('Attempting to update password for user:', sessionUser.email);
+      console.log('Attempting to update password for user:', currentUser.email);
       const { error: updateUserError } = await supabase.auth.updateUser({
         password: formData.password,
       });
@@ -312,101 +227,89 @@ const Register: NextPage = () => {
       if (updateUserError) {
         console.error('Error updating user password:', updateUserError);
         setError(`Password update failed: ${updateUserError.message}`);
-        setIsLoading(false);
-        // Mark invitation as FAILED
-        try {
-          await supabase.from('invitations').update({ status: 'FAILED' }).eq('token', rawInviteToken);
-          console.log('Invitation status updated to FAILED after password update error.');
-        } catch (updateErr) {
-          console.error('Error updating invitation status to FAILED:', updateErr);
-        }
+        setStatus('ready_for_password'); // Allow retry
         return;
       }
 
-      console.log('User password updated successfully for:', sessionUser.email);
+      console.log('User password updated successfully for:', currentUser.email);
 
-      // Mark the invitation as RESOLVED
+       if (!currentUser?.id) {
+           console.error('onSubmit: User ID missing after password update.');
+           setError('User session issue after password update. Please try logging in again.');
+           setStatus('error');
+           return;
+       }
+
+      console.log(`onSubmit: Updating invitation status to RESOLVED for ID: ${fetchedDbInvite.id} with user ID: ${currentUser.id}`);
       const { error: invitationUpdateError } = await supabase
         .from('invitations')
-        .update({ 
-          status: 'RESOLVED', 
-          used_at: new Date().toISOString(),
-          // user_id: sessionUser.id // Optionally link the user ID
+        .update({
+          status: 'RESOLVED',
+          updated_at: new Date().toISOString(),
         })
-        .eq('token', rawInviteToken);
+        .eq('id', fetchedDbInvite.id);
 
       if (invitationUpdateError) {
-        console.error('Error updating invitation status to RESOLVED:', invitationUpdateError);
-        // Non-critical for user flow at this point, password is set.
+        console.error('onSubmit: Error updating invitation status to RESOLVED:', invitationUpdateError);
       } else {
-        console.log('Invitation status successfully updated to RESOLVED.');
+        console.log('onSubmit: Invitation status successfully updated to RESOLVED.');
       }
-      
-      // Update profile status to ACTIVE
-      console.log('Attempting to update profile status to ACTIVE for user ID:', sessionUser.id);
+
+      console.log(`onSubmit: Attempting to update profile status to ACTIVE for user ID: ${currentUser.id}`);
       const { error: profileUpdateError } = await supabase
         .from('profiles')
-        .update({ status: 'ACTIVE' })
-        .eq('id', sessionUser.id); 
+        .update({ status: 'ACTIVE' }) // Ensure 'profiles' table and 'status' column exist
+        .eq('id', currentUser.id);
 
-      if (profileUpdateError) {
-        console.error('Error updating profile status to ACTIVE:', profileUpdateError);
-        // Non-critical, proceed with redirect.
+       if (profileUpdateError) {
+        console.error('onSubmit: Error updating profile status to ACTIVE:', profileUpdateError);
+        // Decide if this is critical. If so, maybe setError and return.
+        // If not critical (e.g., context refresh might fix it), log and continue.
       } else {
-        console.log('Successfully updated profile status to ACTIVE for user:', sessionUser.id);
+        console.log(`onSubmit: Successfully updated profile status to ACTIVE for user: ${currentUser.id}`);
+        // Profile DB update successful, now refresh the AuthContext state
+        console.log('onSubmit: Refreshing AuthContext profile...');
+        await refreshUserProfile();
+        console.log('onSubmit: AuthContext profile refreshed.');
       }
 
-      console.log('Registration and password set process complete. Redirecting to /');
-      router.push('/');
+      console.log('onSubmit: Registration complete. Redirecting to dashboard...');
+      router.push(`/${fetchedDbInvite.organization_id}/${fetchedDbInvite.mailroom_id}/`); // Or '/dashboard' or similar
 
     } catch (err) {
-      console.error('Registration submission error:', err);
-      setError('An unexpected error occurred. Please try again.');
-      setIsLoading(false);
-      // Attempt to mark invitation as FAILED on unexpected errors during submit
-      if (rawInviteToken) {
-        try {
-          await supabase.from('invitations').update({ status: 'FAILED' }).eq('token', rawInviteToken);
-          console.log('Invitation status updated to FAILED after unexpected submission error.');
-        } catch (updateErr) {
-          console.error('Error updating invitation status to FAILED after error:', updateErr);
-        }
-      }
+      console.error('onSubmit: Registration submission error:', err);
+      setError('An unexpected error occurred during submission. Please try again.');
+      setStatus('ready_for_password'); // Allow retry on unexpected errors
     }
   };
 
-  // Show loading state while validating the token and session
-  if (isValidating) {
+  // --- Conditional Rendering based on Status ---
+
+  if (status === 'checking_session' || status === 'validating_invite') {
     return (
       <Layout title="Validating Invitation | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
           <div className="text-center">
-            <p className="text-[#471803] mb-2">Validating your invitation...</p>
-            <p className="text-sm text-[#471803]/80">{validationStep}</p>
-            {/* Error display during validation can be helpful */}
-            {error && isValidating && (
-              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-sm max-w-md mx-auto">
-                {error}
-              </div>
-            )}
+            <p className="text-[#471803] mb-2">
+              {status === 'checking_session' ? 'Checking your session...' : 'Validating your invitation...'}
+            </p>
           </div>
         </div>
       </Layout>
     );
   }
 
-  // Show error if validation failed and no invitation details are available
-  if (error && !invitation) {
-    return (
-      <Layout title="Invalid Invitation | Yam" glassy={false}>
+  if (status === 'invalid_invite' || (status === 'error' && !fetchedDbInvite)) {
+     return (
+      <Layout title="Invitation Problem | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
           <div className="w-full max-w-md p-8 text-center bg-[#ffeedd]">
             <h1 className="text-2xl font-medium text-[#471803] mb-4">
-              Invitation Problem
+              {status === 'invalid_invite' ? 'Invitation Problem' : 'Error'}
             </h1>
-            <p className="text-[#471803] mb-6">{error}</p>
-            <Button 
-              onClick={() => router.push('/login')}
+            <p className="text-[#471803] mb-6">{error || 'An unexpected error occurred.'}</p>
+            <Button
+              onClick={() => router.push('/login')} // Redirect to login for invalid invites
               className="bg-[#471803] hover:bg-[#471803]/90 text-white py-2 rounded-none"
             >
               Go to Login
@@ -416,9 +319,22 @@ const Register: NextPage = () => {
       </Layout>
     );
   }
-  
-  // If invitation is loaded (implies validation passed), show the form
-  if (invitation) {
+
+  if (status === 'ready_for_password' || status === 'submitting' || (status === 'error' && fetchedDbInvite)) {
+     if (!fetchedDbInvite) {
+        return (
+            <Layout title="Error | Yam" glassy={false}>
+                <div className="flex flex-1 justify-center items-center h-full">
+                <p className="text-red-600">Internal error: Missing invitation details in password state.</p>
+                </div>
+            </Layout>
+        );
+     }
+
+    // Extract names, fallback to IDs or generic text, using [0] for array access
+    const mailroomName = fetchedDbInvite.mailrooms?.name || `Mailroom (${fetchedDbInvite.mailroom_id})`;
+    const organizationName = fetchedDbInvite.organizations?.name || `Organization (${fetchedDbInvite.organization_id})`;
+
     return (
       <Layout title="Complete Registration | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
@@ -427,17 +343,17 @@ const Register: NextPage = () => {
               <h1 className="text-2xl font-medium tracking-tight text-[#471803] mb-2">
                 Set Your Password
               </h1>
-              {/* Display invitation details */}
               <div className="text-sm text-[#471803]/80 mb-4">
-                <p>You&apos;ve been invited to join</p>
-                <p className="font-medium">{invitation.mailroomName} at {invitation.organizationName}</p>
-                <p className="mt-2">as a <span className="font-medium">{invitation.role}</span></p>
-                <p className="mt-1">Email: {invitation.email}</p>
+                 <p>You&apos;ve been invited to join</p>
+                 <p className="font-medium">
+                   {mailroomName} at {organizationName}
+                 </p>
+                 <p className="mt-2">as a <span className="font-medium">{fetchedDbInvite.role || 'user'}</span></p>
+                 <p className="mt-1">Email: {fetchedDbInvite.email}</p>
               </div>
             </div>
 
-            {/* Display error messages that occur after validation (e.g., during form submission) */}
-            {error && (
+            {(error && (status === 'ready_for_password' || status === 'error')) && (
               <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-sm">
                 {error}
               </div>
@@ -452,7 +368,7 @@ const Register: NextPage = () => {
                   placeholder="Set your password"
                   {...form.register('password')}
                   className="bg-white border-[#471803]/50 focus:border-[#471803] focus:ring-[#471803] rounded-none w-full"
-                  disabled={isLoading}
+                  disabled={status === 'submitting'}
                 />
                 {form.formState.errors.password && (
                   <p className="text-xs text-red-600">{form.formState.errors.password.message}</p>
@@ -467,19 +383,19 @@ const Register: NextPage = () => {
                   placeholder="Confirm your password"
                   {...form.register('confirmPassword')}
                   className="bg-white border-[#471803]/50 focus:border-[#471803] focus:ring-[#471803] rounded-none w-full"
-                  disabled={isLoading}
+                  disabled={status === 'submitting'}
                 />
                 {form.formState.errors.confirmPassword && (
                   <p className="text-xs text-red-600">{form.formState.errors.confirmPassword.message}</p>
                 )}
               </div>
 
-              <Button 
-                type="submit" 
-                disabled={isLoading}
+              <Button
+                type="submit"
+                disabled={status === 'submitting'}
                 className="w-full bg-[#471803] hover:bg-[#471803]/90 text-white py-2 rounded-none"
               >
-                {isLoading ? 'Setting Password...' : 'Complete Registration & Set Password'}
+                {status === 'submitting' ? 'Setting Password...' : 'Complete Registration & Set Password'}
               </Button>
             </form>
           </div>
@@ -488,12 +404,10 @@ const Register: NextPage = () => {
     );
   }
 
-  // Fallback if no other condition is met (e.g. unexpected state)
-  // This should ideally not be reached if logic for isValidating, error, and invitation is correct.
   return (
     <Layout title="Registration | Yam" glassy={false}>
       <div className="flex flex-1 justify-center items-center h-full">
-        <p className="text-[#471803]">Loading registration page or unexpected state.</p>
+        <p className="text-[#471803]">Loading registration page or encountered an unexpected state.</p>
       </div>
     </Layout>
   );

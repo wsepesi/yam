@@ -181,6 +181,13 @@ export default function ManageManagers() {
   };
 
   const handleRemoveManager = async (managerId: string) => {
+    // Add check for valid managerId
+    if (!managerId) {
+      setError('Invalid manager ID provided. Cannot remove manager.');
+      setSuccess(null);
+      return;
+    }
+
     try {
       if (!session) {
         setError('You must be logged in to remove managers');
@@ -220,7 +227,6 @@ export default function ManageManagers() {
         body: JSON.stringify({
           role: 'user', // Downgrade from manager to user
           status: 'REMOVED', // Set status to REMOVED
-          mailroomId: mailroomId
         }),
       });
       

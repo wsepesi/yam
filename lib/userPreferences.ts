@@ -61,6 +61,9 @@ export const getUserMailroom = async (userProfile: UserProfile | null): Promise<
 export const getUserRedirectPath = async (userProfile: UserProfile | null = null): Promise<string> => {
   const org = await getUserOrg(userProfile);
   const mailroom = await getUserMailroom(userProfile);
+  if (org === DEFAULT_ORG && mailroom === DEFAULT_MAILROOM) {
+    throw new Error('No organization or mailroom found');
+  }
   return `/${org}/${mailroom}`;
 };
 

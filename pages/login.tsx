@@ -24,7 +24,7 @@ const Login: NextPage = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null); 
-  const { signIn, userProfile } = useAuth();
+  const { signIn } = useAuth();
   const { callbackUrl } = router.query;
 
   const form = useForm<LoginFormValues>({
@@ -44,6 +44,8 @@ const Login: NextPage = () => {
       console.log('Calling signIn method...');
       const result = await signIn(data.email, data.password);
       console.log('SignIn method returned:', result);
+
+      
       
       if (result.error) {
         console.error('Login failed with error:', result.error);
@@ -63,7 +65,7 @@ const Login: NextPage = () => {
         // Default to org/mailroom structure if no valid callback
         console.log('Getting user redirect path...');
         try {
-          redirectPath = await getUserRedirectPath(userProfile);
+          redirectPath = await getUserRedirectPath(result.userProfile);
           console.log('Received redirect path:', redirectPath);
         } catch (pathError) {
           console.error('Error getting redirect path:', pathError);
