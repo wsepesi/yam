@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 
+import { Analytics } from "@vercel/analytics/next"
 import type { AppProps } from "next/app";
 import { AuthProvider } from "@/context/AuthContext";
 import { Spectral } from 'next/font/google';
@@ -19,6 +20,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <main className={`${spectral.variable}`}>
          <Component {...pageProps} />
          <SpeedInsights />
+         <Analytics />
       </main>
     </AuthProvider>
   );
