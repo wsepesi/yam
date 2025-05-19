@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getMailroomDisplayName, getOrgDisplayNameSync } from '@/lib/userPreferences';
 
-import Layout from '@/components/Layout'; // Adjust import path if needed
+import Layout from '@/components/Layout';
 import ManageEmailContent from '@/components/mailroomTabs/ManageEmailContent';
 import ManageManagers from '@/components/mailroomTabs/ManageManagers';
 import ManagePackages from '@/components/mailroomTabs/ManagePackages';
@@ -11,6 +11,7 @@ import ManageUsers from '@/components/mailroomTabs/ManageUsers';
 import Overview from '@/components/mailroomTabs/Overview';
 import Pickup from '@/components/mailroomTabs/Pickup';
 import Register from '@/components/mailroomTabs/RegisterPackage'
+import UserTabPageSkeleton from '@/components/UserTabPageSkeleton';
 import { useRouter } from 'next/router';
 import { useUserRole } from '@/context/AuthContext';
 import { withAuth } from '@/components/withAuth';
@@ -142,7 +143,7 @@ export function UserTabPage() {
 
   // Handle loading state while router is hydrating or auth is loading
   if (!router.isReady || isLoading) {
-    return <Layout title="Package Management" glassy={false}><div className="pt-16 text-center">Loading...</div></Layout>;
+    return <Layout title="Package Management" glassy={false}><UserTabPageSkeleton /></Layout>;
   }
 
   const handleTabClick = (newTab: TabType) => {

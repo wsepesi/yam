@@ -1,7 +1,8 @@
 import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-import Spinner from '@/components/Spinner';
+import Layout from '@/components/Layout';
+import UserTabPageSkeleton from '@/components/UserTabPageSkeleton';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
 
@@ -315,22 +316,28 @@ export const withAuth = <P extends object>(
         return;
       }
 
-      if (
-        !isLoading &&
-        isAuthenticated &&
-        requiredRole &&
-        userProfile?.role !== requiredRole &&
-        userProfile?.role !== 'admin'
-      ) {
-        router.push('/unauthorized');
+      if (!isLoading && isAuthenticated && userProfile) {
+        if (
+          requiredRole &&
+          userProfile.role !== requiredRole &&
+          userProfile.role !== 'admin'
+        ) {
+          router.push('/unauthorized');
+        }
       }
     }, [isLoading, isAuthenticated, userProfile, router, loadingTimedOut]);
 
-    if (isLoading) {
-      if (loadingTimedOut) {
+    const effectivelyLoading = isLoading || (isAuthenticated && !userProfile);
+
+    if (effectivelyLoading) {
+      if (loadingTimedOut && isLoading) {
         return null;
       }
-      return <Spinner />;
+      return (
+        <Layout title="Loading..." glassy={false}>
+          <UserTabPageSkeleton />
+        </Layout>
+      );
     }
 
     if (!isAuthenticated) {
@@ -339,8 +346,9 @@ export const withAuth = <P extends object>(
 
     if (
       requiredRole &&
-      userProfile?.role !== requiredRole &&
-      userProfile?.role !== 'admin'
+      userProfile &&
+      userProfile.role !== requiredRole &&
+      userProfile.role !== 'admin'
     ) {
       return null;
     }
