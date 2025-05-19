@@ -103,7 +103,6 @@ const Register: NextPage = () => {
       }
     }
     // This effect runs once on component mount to check the initial URL.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Effect to manage auth state

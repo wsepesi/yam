@@ -104,9 +104,9 @@ export default function ManageManagers() {
       console.log(usersData);
       
       if (usersRes.ok) {
-        // Filter for users who are managers or admins AND are ACTIVE
+        // Filter for users who are managers or admins AND are ACTIVE or INVITED
         const actualManagers = usersData.users.filter(
-          (user: Manager) => (user.role === 'manager' || user.role === 'admin') && user.status === 'ACTIVE'
+          (user: Manager) => (user.role === 'manager' || user.role === 'admin') && (user.status === 'ACTIVE' || user.status === 'INVITED')
         );
         setManagers(actualManagers);
       } else {
@@ -331,7 +331,7 @@ export default function ManageManagers() {
       {/* Tables Container - New structure for two-column layout */}
       <div className="flex gap-2 w-full">
         {/* Pending Invitations List - Moved First */}
-        <div className="p-6 bg-white border border-[#471803]/20 w-1/2">
+        <div className="p-6 bg-white border border-[#471803]/20 w-2/5">
           <h3 className="text-lg font-medium text-[#471803] mb-4">Pending Invitations</h3>
           
           <div className="h-[30vh] overflow-y-auto">
@@ -349,17 +349,17 @@ export default function ManageManagers() {
                 <table className="min-w-full divide-y divide-[#471803]/20">
                   <thead className="bg-white sticky top-0">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
                       {/* <th className="px-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Expires</th> */}
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Status</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-[#471803]/10">
                     {pendingInvitations.map((invitation) => (
                       <tr key={invitation.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{invitation.email}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-[#471803]">{invitation.email}</td>
                         {/* <td className="px-3 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(invitation.expiresAt)}</td> */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm">
                           <span className={`px-2 py-1 text-xs font-semibold rounded ${
                             invitation.status === 'PENDING' 
                               ? 'bg-yellow-100 text-yellow-800' 
@@ -382,7 +382,7 @@ export default function ManageManagers() {
         </div>
 
         {/* Current Managers List - Moved Second */}
-        <div className="p-6 bg-white border border-[#471803]/20 w-1/2">
+        <div className="p-6 bg-white border border-[#471803]/20 w-3/5">
           <h3 className="text-lg font-medium text-[#471803] mb-4">Current Managers</h3>
           
           <div className="h-[30vh] overflow-y-auto">
@@ -401,19 +401,30 @@ export default function ManageManagers() {
                 <table className="min-w-full divide-y divide-[#471803]/20">
                   <thead className="bg-white sticky top-0">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
                       {/* <th className="px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Name</th> */}
-                      <th className="px-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Joined</th>
-                      <th className="pl-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider"></th>
+                      <th className="px-1 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Joined</th>
+                      <th className="px-1 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Status</th>
+                      <th className="pl-1 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider"></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-[#471803]/10">
                     {managers.map((manager) => (
                       <tr key={manager.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{manager.email}</td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-[#471803]">{manager.email}</td>
                         {/* <td className="px-2 py-4 whitespace-nowrap text-sm text-[#471803] capitalize">{manager.name || 'N/A'}</td> */}
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(manager.created_at)}</td>
-                        <td className="pl-3 py-4 whitespace-nowrap text-sm text-[#471803]">
+                        <td className="px-1 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(manager.created_at)}</td>
+                        <td className="px-1 py-4 whitespace-nowrap text-sm">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded ${manager.status === 'ACTIVE' 
+                              ? 'bg-green-100 text-green-800' 
+                              : manager.status === 'INVITED' 
+                                ? 'bg-blue-100 text-blue-800' // Using blue for INVITED for distinction
+                                : 'bg-gray-100 text-gray-800' // Fallback, though not expected here based on filter
+                          }`}>
+                            {manager.status}
+                          </span>
+                        </td>
+                        <td className="pl-1 py-4 whitespace-nowrap text-sm text-[#471803]">
                           {manager.role !== 'admin' && (
                             <Button 
                               variant="ghost"
@@ -445,7 +456,7 @@ export default function ManageManagers() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[#471803]">Are you sure?</AlertDialogTitle>
             <AlertDialogDescription className="text-[#471803]/90">
-              This action will remove manager permissions for {managerToRemove.email}. They will be removed from the mailroom. This action cannot be undone.
+              {`This action will permanently delete the manager account for ${managerToRemove?.email} from this mailroom. This action cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4">
