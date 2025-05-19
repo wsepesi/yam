@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getMailroomDisplayName, getOrgDisplayNameSync } from '@/lib/userPreferences';
 
 import Layout from '@/components/Layout'; // Adjust import path if needed
+import ManageEmailContent from '@/components/mailroomTabs/ManageEmailContent';
 import ManageManagers from '@/components/mailroomTabs/ManageManagers';
 import ManagePackages from '@/components/mailroomTabs/ManagePackages';
 import ManageRoster from '@/components/mailroomTabs/ManageRoster';
@@ -16,7 +17,7 @@ import { withAuth } from '@/components/withAuth';
 
 // Define the possible tab values for each role
 const USER_TABS = ['overview', 'pickup', 'register'] as const;
-const MANAGER_TABS = ['manage users', 'manage roster', 'manage packages', 'manage managers'] as const;
+const MANAGER_TABS = ['manage users', 'manage roster', 'manage packages', 'manage managers', 'manage email content'] as const;
 const ADMIN_TABS = [] as const; // Keeping admin section in code but empty for now
 
 // Tab configuration mapping
@@ -48,6 +49,10 @@ const TAB_CONFIG = {
   'manage managers': {
     title: 'manage managers',
     Component: ManageManagers
+  },
+  'manage email content': {
+    title: 'manage email content',
+    Component: ManageEmailContent
   }
 } as const;
 
