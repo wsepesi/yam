@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button'; // Assuming you use shadcn/ui b
 import Layout from '@/components/Layout'; // Assuming you have a Layout component
 import { useRouter } from 'next/router';
 
+const SUPABASE_VERIFY_URL_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/verify`;
+const SITE_URL = "https://useyam.com";
+const REGISTER_PATH = "/register";
+
 const ConfirmSignupPage = () => {
   const router = useRouter();
   const [confirmationUrl, setConfirmationUrl] = useState<string | null>(null);
@@ -11,26 +15,29 @@ const ConfirmSignupPage = () => {
 
   useEffect(() => {
     if (router.isReady) {
-      const { confirmation_url } = router.query;
-      if (typeof confirmation_url === 'string' && confirmation_url) {
+      const { token } = router.query;
+      if (typeof token === 'string' && token) {
         try {
-          // Basic validation for the URL
-          const url = new URL(confirmation_url);
-          // You might want to add more specific validation here, e.g., check origin
+          // Construct the Supabase verification URL
+          const redirectUrl = `${SITE_URL}${REGISTER_PATH}`;
+          const supabaseVerifyUrl = `${SUPABASE_VERIFY_URL_BASE}?token=${encodeURIComponent(token)}&type=invite&redirect_to=${encodeURIComponent(redirectUrl)}`;
+          // Basic validation for the constructed URL to ensure it's valid
+          const url = new URL(supabaseVerifyUrl);
           setConfirmationUrl(url.toString());
         } catch (e) {
-          console.error("Invalid confirmation URL:", e);
-          setError("The confirmation link is invalid or malformed.");
+          console.error("Error constructing or validating the verification URL:", e);
+          setError("There was an issue preparing your confirmation link.");
         }
-      } else if (confirmation_url) {
-        setError("The confirmation link is incorrectly formatted.");
+      } else if (token) {
+        setError("The token in the link is incorrectly formatted.");
       } else {
-        setError("Confirmation URL not found in the link. Please check the link and try again.");
+        setError("Confirmation token not found in the link. Please check the link and try again.");
       }
     }
   }, [router.isReady, router.query]);
 
   const handleProceed = () => {
+    console.log(confirmationUrl)
     if (confirmationUrl) {
       // Perform the redirect
       window.location.href = confirmationUrl;

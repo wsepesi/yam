@@ -9,7 +9,7 @@ import Layout from '@/components/Layout';
 import { NextPage } from 'next';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
+import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/router';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -65,6 +65,47 @@ const Register: NextPage = () => {
     },
   });
 
+  // Effect to check for URL hash errors on initial load
+  useEffect(() => {
+    const hash = window.location.hash.substring(1); // Remove '#'
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const errorCode = params.get('error_code');
+      const errorParam = params.get('error');
+      const errorDescription = params.get('error_description');
+
+      let isOtpError = false;
+      let messageFromUrl = '';
+
+      // Prioritize error_code=otp_expired
+      if (errorCode === 'otp_expired') {
+        isOtpError = true;
+        messageFromUrl = errorDescription || 'The email verification link has expired or is invalid.';
+      }
+      // Fallback to error=access_denied with a descriptive message
+      else if (errorParam === 'access_denied' && errorDescription &&
+               (errorDescription.toLowerCase().includes('link is invalid or has expired') ||
+                errorDescription.toLowerCase().includes('otp_expired'))) {
+        isOtpError = true;
+        messageFromUrl = errorDescription;
+      }
+
+      if (isOtpError) {
+        console.warn('Registration link error detected in URL hash:', { errorCode, errorParam, errorDescription });
+
+        const finalMessage = `${messageFromUrl}. If the problem persists, you may need to request a new invitation.`;
+
+        setError(finalMessage);
+        setStatus('invalid_invite'); // This will trigger the error UI
+
+        // Clean the URL by removing the hash after processing
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+    // This effect runs once on component mount to check the initial URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Effect to manage auth state
   useEffect(() => {
     if (status === 'submitting') {
@@ -73,34 +114,48 @@ const Register: NextPage = () => {
     const { data: authListenerData } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth State Change:', event, session ? { userEmail: session.user?.email, eventType: event } : 'No session');
 
-      // Handle initial session load or explicit sign-in
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
-         // Set user only if it's null or different
+      const knownNonResettableStates: RegistrationStatus[] = [
+        'validating_invite', 'ready_for_password', 'submitting', 'invalid_invite', 'error'
+      ];
+
+      if (event === 'INITIAL_SESSION') {
+        if (session?.user) {
+          // User has an initial session.
+          if (!sessionUser || sessionUser.id !== session.user.id) {
+            setSessionUser(session.user); // Update session user
+          }
+          // If status is an unexpected state (not known non-resettable and not checking_session itself),
+          // reset to 'checking_session'. Otherwise, if it's already 'checking_session',
+          // the update to sessionUser will trigger the validation effect.
+          // If it's a known non-resettable state, we don't change status.
+          if (!knownNonResettableStates.includes(status) && status !== 'checking_session') {
+            setStatus('checking_session');
+          }
+        } else {
+          // No initial session (user is not logged in).
+          if (status === 'checking_session') {
+            console.warn('INITIAL_SESSION: No user session found and no prior URL error. User likely navigated directly to /register or link was entirely invalid.');
+            setError('A valid, authenticated session is required to set your password. Please use the invitation link sent to your email. If you are sure you used the correct link, it might have expired or already been used.');
+            setStatus('invalid_invite');
+          }
+        }
+      } else if (event === 'SIGNED_IN' && session?.user) {
         if (!sessionUser || sessionUser.id !== session.user.id) {
-           setSessionUser(session.user);
-           // Reset status ONLY if we weren't already processing/submitting
-           if (status !== 'ready_for_password') {
-               setStatus('checking_session');
-           }
+           setSessionUser(session.user); // Update session user
+        }
+        // Similar logic for SIGNED_IN: if status is unexpected, reset to checking_session.
+        if (!knownNonResettableStates.includes(status) && status !== 'checking_session') {
+          setStatus('checking_session');
         }
       } else if (event === 'SIGNED_OUT') {
-        // Handle sign-out
         setSessionUser(null);
         setFetchedDbInvite(null); // Clear invite details on sign out
-        setStatus('checking_session');
-        setError('Session ended. Please log in again if needed.');
+        console.warn('SIGNED_OUT: User session ended on registration page.');
+        setError('Your session has ended. To set your password, please use the invitation link again.');
+        setStatus('invalid_invite'); // Directly to invalid state as registration cannot proceed.
       } else if (event === 'USER_UPDATED') {
           // User updated (e.g., password change).
-          // Per Supabase docs, avoid doing much here synchronously, especially other Supabase calls or complex state logic,
-          // to prevent deadlocks with the async function that triggered the update (onSubmit).
           console.log('User updated event received. Minimal handling in listener.');
-          // Avoid setting state or calling other Supabase functions here to prevent potential deadlocks.
-          // We rely on the onSubmit function to continue its execution after the await updateUser resolves.
-          // If absolutely necessary to update the user object globally *after* the event,
-          // consider using the setTimeout pattern suggested in docs, but it might not be needed here.
-          // if (session?.user && (!sessionUser || sessionUser.id === session.user.id)) {
-          //     setSessionUser(session.user); // Temporarily disable this state update
-          // }
       }
     });
 
