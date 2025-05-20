@@ -355,5 +355,7 @@ export function UserTabPage() {
 //    return { props: { initialTab: tab } };
 // }
 
-// Export the page wrapped with auth protection
-export default withAuth(UserTabPage);
+// Default export with authentication HOC
+// All roles (user, manager, admin) can access this page by default.
+// Specific tab visibility is handled within the UserTabPage component.
+export default withAuth(UserTabPage, 'user'); // Explicitly require 'user' role

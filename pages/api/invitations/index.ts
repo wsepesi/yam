@@ -33,8 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Verify user has manager or admin role
-    if (userProfile.role !== 'manager' && userProfile.role !== 'admin') {
-      return res.status(403).json({ error: 'Only managers and admins can view invitations' });
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return res.status(403).json({ error: 'Only super-admins, admins, and managers can view invitations' });
     }
 
     // Fetch mailroom to get organization ID
@@ -48,10 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid mailroom' });
     }
 
-    // Verify user belongs to the same organization as the mailroom
-    if (userProfile.role !== 'admin' && userProfile.organization_id !== mailroom.organization_id) {
-      return res.status(403).json({ error: 'You can only view invitations in your organization' });
+    // For managers, ensure they are querying invitations for their own organization
+    if (userProfile.role === 'manager' && userProfile.organization_id !== mailroom.organization_id) {
+      return res.status(403).json({ error: 'Managers can only view invitations for their own organization' });
     }
+    // Admins and Super-Admins can view any, so no specific org check needed for them here if mailroomId is provided
+    // If mailroomId is NOT provided, Admins/Super-Admins might list all invitations system-wide (not implemented here)
 
     // Set up the query for pending invitations
     let query = supabaseAdmin

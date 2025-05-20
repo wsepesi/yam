@@ -46,9 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Mailroom not found' });
     }
 
-    // Verify user has access to this mailroom (same org or admin)
-    if (userProfile.role !== 'admin' && userProfile.organization_id !== mailroom.organization_id) {
-      return res.status(403).json({ error: 'You do not have access to this mailroom' });
+    // Verify user has access to this mailroom (same org or admin or super-admin)
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.organization_id !== mailroom.organization_id) {
+      return res.status(403).json({ error: 'User does not have permission to access users for this mailroom' });
     }
 
     // Fetch all users (profiles) for the specified mailroom

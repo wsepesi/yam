@@ -41,7 +41,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Authorization check:
     // Users must be 'admin' or 'manager' to create mailrooms.
     // If 'manager', they must belong to the organization they are creating a mailroom for.
-    const canCreateMailroom = userProfile.role === 'admin' || 
+    const canCreateMailroom = userProfile.role === 'super-admin' ||
+                             userProfile.role === 'admin' || 
                              (userProfile.role === 'manager' && userProfile.organization_id === organizationId);
 
     if (!canCreateMailroom) {

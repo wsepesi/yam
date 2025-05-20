@@ -34,9 +34,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Could not fetch user profile' });
     }
 
-    // Verify user has manager or admin role
-    if (userProfile.role !== 'manager' && userProfile.role !== 'admin') {
-      return res.status(403).json({ error: 'Only managers and admins can delete invitations' });
+    // Verify user has manager, admin or super-admin role
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return res.status(403).json({ error: 'Only super-admins, admins, and managers can delete invitations' });
     }
 
     // Fetch the invitation to verify ownership
@@ -50,14 +50,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Invitation not found' });
     }
 
-    // Verify user belongs to the same organization as the invitation
-    if (userProfile.role !== 'admin' && userProfile.organization_id !== invitation.organization_id) {
-      return res.status(403).json({ error: 'You can only delete invitations in your organization' });
+    // Verify user belongs to the same organization as the invitation (unless super-admin or admin)
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.organization_id !== invitation.organization_id) {
+      return res.status(403).json({ error: 'Managers can only delete invitations in their organization' });
     }
 
-    // If user is not an admin, verify they created the invitation
-    if (userProfile.role !== 'admin' && invitation.invited_by !== userId) {
-      return res.status(403).json({ error: 'You can only delete invitations you created' });
+    // If user is not an admin or super-admin, verify they created the invitation
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && invitation.invited_by !== userId) {
+      return res.status(403).json({ error: 'Managers can only delete invitations they created' });
     }
 
     // Delete the invitation

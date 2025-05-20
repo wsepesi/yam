@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/router';
 
 // Role type - should match the database
-export type UserRole = 'user' | 'manager' | 'admin';
+export type UserRole = 'user' | 'manager' | 'admin' | 'super-admin';
 
 // Define the shape of the user profiles in your database
 export interface UserProfile {
@@ -320,7 +320,8 @@ export const withAuth = <P extends object>(
         if (
           requiredRole &&
           userProfile.role !== requiredRole &&
-          userProfile.role !== 'admin'
+          userProfile.role !== 'admin' &&
+          userProfile.role !== 'super-admin'
         ) {
           router.push('/unauthorized');
         }
@@ -348,7 +349,8 @@ export const withAuth = <P extends object>(
       requiredRole &&
       userProfile &&
       userProfile.role !== requiredRole &&
-      userProfile.role !== 'admin'
+      userProfile.role !== 'admin' &&
+      userProfile.role !== 'super-admin'
     ) {
       return null;
     }

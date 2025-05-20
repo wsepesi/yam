@@ -46,7 +46,7 @@ const OrgIndexPage: React.FC = () => {
   // For now, only 'admin' can see this page as per original withAuth
   // We can expand AVAILABLE_TABS based on more granular org roles if needed
   const AVAILABLE_TABS = React.useMemo(() => {
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'super-admin') {
       return [...ORG_TABS];
     }
     return []; // No tabs for other roles on this page for now
@@ -102,6 +102,7 @@ const OrgIndexPage: React.FC = () => {
     };
 
     validateAndSetOrgName();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, org]);
 
   // Handle invalid tabs in URL query and redirect if necessary

@@ -26,9 +26,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Missing required parameters (id, role)' });
     }
 
-    // Verify that only proper roles are assigned
+    // Verify that only proper roles are assigned (super-admin cannot be assigned via this endpoint)
     if (role !== 'user' && role !== 'manager' && role !== 'admin') {
-      return res.status(400).json({ error: 'Invalid role value' });
+      return res.status(400).json({ error: 'Invalid target role value. Can only assign user, manager, or admin.' });
     }
 
     // Verify status if provided
@@ -47,9 +47,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Could not fetch user profile' });
     }
 
-    // Only admins and managers can update roles
-    if (userProfile.role !== 'manager' && userProfile.role !== 'admin') {
-      return res.status(403).json({ error: 'Only managers and admins can update roles' });
+    // Authorization: Who can update roles?
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return res.status(403).json({ error: 'Only super-admins, admins, and managers can update roles' });
     }
 
     // Fetch the target manager's profile
@@ -63,14 +63,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Manager not found' });
     }
 
-    // Verify the manager belongs to the same organization as the user
-    if (userProfile.role !== 'admin' && userProfile.organization_id !== managerProfile.organization_id) {
-      return res.status(403).json({ error: 'You can only update managers in your organization' });
+    // Organizational and Promotion Constraints:
+    if (userProfile.role === 'manager') {
+      // Managers can only update users in their own organization
+      if (userProfile.organization_id !== managerProfile.organization_id) {
+        return res.status(403).json({ error: 'Managers can only update users in their own organization' });
+      }
+      // Managers cannot promote to admin or change an admin's role
+      if (role === 'admin' || managerProfile.role === 'admin') {
+        return res.status(403).json({ error: 'Managers cannot promote to admin or modify an admin\'s role' });
+      }
+    } else if (userProfile.role === 'admin') {
+      // Admins cannot modify a super-admin's role or promote someone to super-admin (though super-admin is not an assignable role here)
+      if (managerProfile.role === 'super-admin') { // Target is super-admin
+        return res.status(403).json({ error: 'Admins cannot modify a super-admin\'s role.' });
+      }
+      // Admins cannot assign/change role of users outside of an organization if the target user is not in an org (edge case, profiles usually have orgs)
+      // This is mostly covered by admins operating on managerProfile which should have an org.
     }
+    // Super-admins have no organizational or promotion restrictions through this endpoint for assignable roles.
 
-    // Prevent non-admins from promoting to admin (only demoting is allowed)
-    if (userProfile.role !== 'admin' && role === 'admin') {
-      return res.status(403).json({ error: 'Only admins can promote to admin' });
+    // Prevent non-super-admins and non-admins from promoting to admin
+    // This is somewhat redundant due to the manager block above, but good as a direct check.
+    if (role === 'admin' && userProfile.role !== 'admin' && userProfile.role !== 'super-admin') {
+        return res.status(403).json({ error: 'Only admins or super-admins can promote to admin' });
     }
 
     // Prepare data for update

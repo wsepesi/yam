@@ -2,7 +2,7 @@ import { type DefaultSession } from 'next-auth';
 // import { JWT } from 'next-auth/jwt';
 
 // Define your role type - should match the one in [...nextauth].ts
-type UserRole = 'user' | 'manager' | 'admin';
+type UserRole = 'user' | 'manager' | 'admin' | 'super-admin';
 
 declare module 'next-auth' {
   /**

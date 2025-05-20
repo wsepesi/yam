@@ -87,14 +87,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Verify user has access to this organization (is an admin or belongs to the organization)
-    console.log('Access check:', {
-      userRole: userProfile.role,
-      userOrgId: userProfile.organization_id,
-      targetOrgId: organization.id,
-      hasAccess: userProfile.role === 'admin' || userProfile.organization_id === organization.id
-    });
-    
-    if (userProfile.role !== 'admin' && userProfile.organization_id !== organization.id) {
+    // const responsePayload = { // Commenting out as it was unused and original endpoint returns IDs
+    //   ...mailroom,
+    //   organizationName: organization.name,
+    //   hasAccess: userProfile.role === 'super-admin' || userProfile.role === 'admin' || userProfile.organization_id === organization.id
+    // };
+
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.organization_id !== organization.id) {
+      // If not an admin and not part of the org, restrict to basic info or deny
+      // For now, let's assume they should not get details if not admin/super-admin or part of the org.
       console.log('Access denied: User does not have access to this organization');
       return res.status(403).json({ error: 'You do not have access to this organization' });
     }

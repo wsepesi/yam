@@ -39,13 +39,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Verify user has manager or admin role
-    if (userProfile.role !== 'manager' && userProfile.role !== 'admin') {
-      return res.status(403).json({ error: 'Only managers and admins can send invitations' });
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return res.status(403).json({ error: 'Only super-admins, admins, and managers can send invitations' });
     }
 
-    // Verify organization matches (unless admin)
-    if (userProfile.role !== 'admin' && userProfile.organization_id !== organizationId) {
-      return res.status(403).json({ error: 'You can only invite users to your organization' });
+    // Verify organization matches (unless admin or super-admin)
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.organization_id !== organizationId) {
+      return res.status(403).json({ error: 'Managers can only send invitations for their own organization' });
     }
 
     console.log('mailroomId', mailroomId)

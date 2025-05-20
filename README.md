@@ -1,8 +1,8 @@
 # Yam
 
-a simple mailroom management platform.
+a simple mailroom management platform. contact `sales@useyam.com`
 
-For dev:
+for dev:
 
 ```bash
 pnpm i

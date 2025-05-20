@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 
 // Define your role type - adjust if needed
-type UserRole = 'user' | 'manager' | 'admin';
+type UserRole = 'user' | 'manager' | 'admin' | 'super-admin';
 
 // Initialize Supabase client for fetching roles (use service role key for elevated privileges)
 // Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in your environment
