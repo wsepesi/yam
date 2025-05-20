@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import Layout from '@/components/Layout';
+import OrgMailroomsTab from '@/components/orgTabs/OrgMailroomsTab';
 import OrgOverview from '@/components/orgTabs/OrgOverview';
 import UserTabPageSkeleton from '@/components/UserTabPageSkeleton';
 import { getOrgDisplayName } from '@/lib/userPreferences';
@@ -9,14 +10,18 @@ import { useUserRole } from '@/context/AuthContext';
 import { withAuth } from '@/components/withAuth';
 
 // Define the possible tab values for the organization page
-const ORG_TABS = ['overview'] as const; // Add other org-level tabs here in the future
+const ORG_TABS = ['overview', 'mailrooms'] as const; // Add other org-level tabs here in the future
 // const ORG_ADMIN_TABS = ['settings', 'manage mailrooms'] as const; // Example for future expansion
 
 // Tab configuration mapping
 const TAB_CONFIG = {
   'overview': {
-    title: 'Overview',
+    title: 'overview',
     Component: OrgOverview,
+  },
+  'mailrooms': {
+    title: 'Mailrooms',
+    Component: OrgMailroomsTab,
   },
   // Future tabs:
   // 'settings': {
@@ -97,17 +102,30 @@ const OrgIndexPage: React.FC = () => {
     };
 
     validateAndSetOrgName();
-  }, [router.isReady, org, router]);
+  }, [router.isReady, org]);
 
-  // Handle invalid tabs and redirect if necessary (optional for single 'overview' tab)
+  // Handle invalid tabs in URL query and redirect if necessary
   useEffect(() => {
-    if (router.isReady && AVAILABLE_TABS.length > 0) {
-      if (currentTabValue && !AVAILABLE_TABS.includes(currentTabValue as OrgTabType)) {
-        const defaultPathSegment = AVAILABLE_TABS[0].replace(/\s+/g, '-');
-        router.replace(`/${org}/${defaultPathSegment}`);
+    if (router.isReady && AVAILABLE_TABS.length > 0 && typeof org === 'string') {
+      const rawTabQueryParam = Array.isArray(router.query.tab) ? router.query.tab[0] : router.query.tab;
+
+      if (rawTabQueryParam) { // Only act if a tab is specified in the URL query
+        const normalizedRawTab = rawTabQueryParam.replace(/-/g, ' ');
+        if (!AVAILABLE_TABS.includes(normalizedRawTab as OrgTabType)) {
+          // The tab from URL query is invalid or not available. Redirect.
+          const defaultAvailableTab = AVAILABLE_TABS[0] as OrgTabType; // Assumes AVAILABLE_TABS[0] is valid
+          const defaultUrlQuerySegment = defaultAvailableTab.replace(/\s+/g, '-');
+
+          if (defaultAvailableTab === 'overview') {
+            router.replace(`/${org}`, undefined, { shallow: true });
+          } else {
+            router.replace(`/${org}?tab=${defaultUrlQuerySegment}`, undefined, { shallow: true });
+          }
+        }
       }
     }
-  }, [router.isReady, currentTabValue, org, router, AVAILABLE_TABS]);
+    // Adding router.query.tab to dependencies as it's directly used.
+  }, [router.isReady, router.query.tab, org, AVAILABLE_TABS, router]);
 
   // Handle loading state
   if (!router.isReady || isRoleLoading || isValidating) {
@@ -126,9 +144,13 @@ const OrgIndexPage: React.FC = () => {
   }
 
   const handleTabClick = (newTab: OrgTabType) => {
-    const urlTab = newTab.replace(/\s+/g, '-');
-    // For overview, we might want the path to be just /[org]
-    const path = newTab === 'overview' ? `/${org}` : `/${org}/${urlTab}`;
+    const urlTabSegment = newTab.replace(/\s+/g, '-');
+    let path;
+    if (newTab === 'overview') {
+      path = `/${org}`;
+    } else {
+      path = `/${org}?tab=${urlTabSegment}`;
+    }
     router.push(path, undefined, { shallow: true });
   };
 
@@ -148,11 +170,11 @@ const OrgIndexPage: React.FC = () => {
                     <button
                       key={tabName}
                       onClick={() => handleTabClick(tabName)}
-                      className={`text-xs px-3 py-2 text-left tracking-wide relative capitalize ${
+                      className={`text-xs px-3 py-2 text-left tracking-wide relative ${
                         activeTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
                       } hover:text-[#471803] transition-colors`}
                     >
-                      {TAB_CONFIG[tabName]?.title || tabName}
+                      {tabName}
                       {activeTab === tabName && (
                         <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
                       )}
@@ -167,12 +189,12 @@ const OrgIndexPage: React.FC = () => {
         {/* Main Content Area */}
         <div className="flex-1 px-12">
           <div className="flex justify-between items-center mb-4 pt-6">
-            <h1 className="text-2xl font-medium text-[#471803]">
-              <b className='text-2xl'>{orgDisplayName}</b> <p className='text-lg inline'>Dashboard</p>
+            <h1 className="text-2xl font-medium text-[#471803] relative">
+              <b className='text-2xl'>{orgDisplayName}</b> <p className='text-lg inline'></p>
               <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]"></div>
             </h1>
             {TAB_CONFIG[activeTab]?.title && (
-              <h2 className="text-xl font-semibold text-[#471803] italic relative capitalize">
+              <h2 className="text-xl font-semibold text-[#471803] italic relative">
                 {TAB_CONFIG[activeTab].title}
                 <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]"></div>
               </h2>

@@ -14,11 +14,13 @@ interface MonthlyChartDataPoint {
 interface MailroomCoreData {
     id: string;
     name: string;
+    slug: string;
 }
 
 interface MailroomBreakdownData {
   mailroomID: string;
   mailroomName: string;
+  mailroomSlug: string;
   totalPackages: number;
   totalResidents: number;
   packagesAwaitingPickup: number;
@@ -110,7 +112,7 @@ export default async function handler(
     
     const { data: mailroomsData, error: mailroomsError } = await supabaseAdmin
       .from('mailrooms')
-      .select('id, name')
+      .select('id, name, slug')
       .eq('organization_id', organizationUUID); // Use organizationUUID
 
     if (mailroomsError) throw new Error(`Failed to fetch mailrooms: ${mailroomsError.message}`);
@@ -121,7 +123,7 @@ export default async function handler(
     let overallTotalPackages = 0;
     let overallTotalResidents = 0;
 
-    for (const mr of mailroomsData) {
+    for (const mr of mailroomsData as MailroomCoreData[]) {
       const { count: totalPackages, error: pkgError } = await supabaseAdmin
         .from('packages')
         .select('id', { count: 'exact', head: true })
@@ -133,7 +135,6 @@ export default async function handler(
         .from('packages')
         .select('resident_id', { count: 'planned', head:false }) // Changed to planned to avoid actual distinct on DB if large
         .eq('mailroom_id', mr.id)
-        .neq('resident_id', null); // Ensure recipient_id is not null
 
       let totalResidents = 0;
       if (distinctRecipientsError) {
@@ -154,6 +155,7 @@ export default async function handler(
       mailroomBreakdown.push({
         mailroomID: mr.id,
         mailroomName: mr.name,
+        mailroomSlug: mr.slug,
         totalPackages: totalPackages || 0,
         totalResidents: totalResidents || 0,
         packagesAwaitingPickup: awaitingPickup || 0,
