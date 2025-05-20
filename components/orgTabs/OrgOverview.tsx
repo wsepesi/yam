@@ -137,7 +137,7 @@ export default function OrgOverview() {
 
   if (loading) {
     return (
-      <div className="w-full space-y-10">
+      <div className="w-full space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <SkeletonCard />
           <SkeletonCard />
@@ -161,7 +161,7 @@ export default function OrgOverview() {
   }
 
   return (
-    <div className="w-full space-y-10 flex-1 overflow-y-auto pr-2 max-h-[70vh]">
+    <div className="w-full space-y-6 flex-1 overflow-y-auto pr-2 max-h-[70vh]">
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="border-2 border-[#471803] bg-[#fffaf5] p-4">

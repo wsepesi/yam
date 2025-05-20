@@ -22,7 +22,7 @@ interface SystemOverviewStats {
 const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-3 border-2 border-gray-500 shadow-md rounded">
+      <div className="bg-white p-3 border-2 border-gray-500 shadow-md">
         <p className="font-medium text-md text-gray-700">{`${label} 2025`}</p> {/* TODO: Make year dynamic */}
         {payload.map((pld) => (
           <div key={pld.dataKey} style={{ color: pld.color }} className="text-sm">
@@ -43,14 +43,14 @@ const SkeletonCard = ({ isAdminTheme = false }: { isAdminTheme?: boolean }) => {
   const itemColor = isAdminTheme ? 'bg-[#471803]/20' : 'bg-[#471803]/20';
 
   return (
-    <div className={`border-2 ${borderColor} ${bgColor} p-4 animate-pulse rounded`}>
+    <div className={`border-2 ${borderColor} ${bgColor} p-4 animate-pulse`}>
       <div className="flex justify-between">
         <div>
-          <div className={`h-4 ${itemColor} rounded w-3/4 mb-2`}></div>
-          <div className={`h-8 ${itemColor} rounded w-1/2 mb-2`}></div>
-          <div className={`h-3 ${itemColor} rounded w-1/4`}></div>
+          <div className={`h-4 ${itemColor} w-3/4 mb-2`}></div>
+          <div className={`h-8 ${itemColor} w-1/2 mb-2`}></div>
+          <div className={`h-3 ${itemColor} w-1/4`}></div>
         </div>
-        <div className={`w-10 h-10 ${itemColor} rounded`}></div>
+        <div className={`w-10 h-10 ${itemColor}`}></div>
       </div>
     </div>
   );
@@ -61,9 +61,9 @@ const SkeletonChart = ({ isAdminTheme = false }: { isAdminTheme?: boolean }) => 
   const bgColor = isAdminTheme ? 'bg-[#fffaf5]/70' : 'bg-[#fffaf5]/70';
   const itemColor = isAdminTheme ? 'bg-[#471803]/20' : 'bg-[#471803]/20';
   return (
-    <div className={`border-2 ${borderColor} ${bgColor} p-6 animate-pulse rounded`}>
-      <div className={`h-6 ${itemColor} rounded w-1/3 mb-4`}></div>
-      <div className={`h-64 ${itemColor} rounded`}></div>
+    <div className={`border-2 ${borderColor} ${bgColor} p-6 animate-pulse`}>
+      <div className={`h-6 ${itemColor} w-1/3 mb-4`}></div>
+      <div className={`h-64 ${itemColor}`}></div>
     </div>
   );
 };
@@ -114,7 +114,7 @@ export default function AdminOverviewTab() {
 
   if (loading) {
     return (
-      <div className="w-full space-y-10">
+      <div className="w-full space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <SkeletonCard isAdminTheme={true} />
           <SkeletonCard isAdminTheme={true} />
@@ -134,13 +134,13 @@ export default function AdminOverviewTab() {
     return <div className="w-full text-center p-10">No system data available.</div>;
   }
 
-  const cardStyle = "border-2 border-[#471803] bg-[#fffaf5] p-4 rounded";
+  const cardStyle = "border-2 border-[#471803] bg-[#fffaf5] p-4";
   const textMutedStyle = "text-sm text-[#471803]/70 mb-1";
   const textValueStyle = "text-3xl font-bold text-[#471803]";
   const iconStyle = "text-[#471803] opacity-70";
 
   return (
-    <div className="w-full space-y-10 flex-1 overflow-y-auto pr-2 max-h-[70vh]">
+    <div className="w-full space-y-6 flex-1 overflow-y-auto pr-2 max-h-[70vh]">
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className={cardStyle}>
@@ -182,7 +182,7 @@ export default function AdminOverviewTab() {
       </div>
       
       {/* System Package Volume Chart */}
-      <div className={`border-2 border-[#471803] bg-[#fffaf5] p-6 rounded`}>
+      <div className={`border-2 border-[#471803] bg-[#fffaf5] p-6`}>
         <h3 className="text-lg font-medium text-[#471803] mb-4">System-Wide Package Volume (Last 6 Months)</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">

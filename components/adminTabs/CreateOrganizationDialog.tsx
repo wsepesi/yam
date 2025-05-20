@@ -1,12 +1,38 @@
+import { AlertCircle, Check, X } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import React, { useEffect, useState } from 'react';
 
-import { X } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/AuthContext';
+
+// MOCK_MODE: Set this to true to use mock API responses instead of real calls
+const MOCK_MODE = true; // Set to true as requested
+const MOCK_DELAY = {
+  createOrganization: 1500, // 1.5 seconds delay for creating organization
+};
 
 interface CreateOrganizationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onOrganizationCreated: () => void;
+}
+
+interface OrganizationResponseData {
+  name: string;
+  slug: string;
+  status: string;
+  id: string;
+  error?: string;
 }
 
 export const CreateOrganizationDialog: React.FC<CreateOrganizationDialogProps> = ({ isOpen, onClose, onOrganizationCreated }) => {
@@ -17,6 +43,10 @@ export const CreateOrganizationDialog: React.FC<CreateOrganizationDialogProps> =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0); // Added for progress bar
+  const [currentStepMessage, setCurrentStepMessage] = useState(''); // Added for progress message
+  const [filledDots, setFilledDots] = useState(0); // Added for dot animation
+  const totalDots = 3; // Simplified dot animation for single step
 
   useEffect(() => {
     // Reset form when dialog is closed/opened
@@ -27,8 +57,57 @@ export const CreateOrganizationDialog: React.FC<CreateOrganizationDialogProps> =
       setIsSubmitting(false);
       setError(null);
       setSuccess(null);
+      setProgress(0); // Reset progress
+      setCurrentStepMessage(''); // Reset message
+      setFilledDots(0); // Reset dots
     }
   }, [isOpen]);
+
+  // Progress-based dot filling (simplified for one main step)
+  useEffect(() => {
+    if (progress === 0) {
+      setFilledDots(0);
+    } else if (progress < 100) {
+      setFilledDots(1); // In progress
+    } else {
+      setFilledDots(totalDots); // Complete
+    }
+  }, [progress, totalDots]);
+
+  // Time-based "walking" animation during waiting periods
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isSubmitting && filledDots < totalDots) {
+      let currentWalkingDot = filledDots;
+      
+      interval = setInterval(() => {
+        currentWalkingDot = (currentWalkingDot >= filledDots && currentWalkingDot < totalDots - 1) 
+          ? currentWalkingDot + 1 
+          : filledDots;
+          
+        setFilledDots(prev => {
+          if (prev > currentWalkingDot) return prev;
+          return currentWalkingDot;
+        });
+      }, 300);
+    }
+    
+    return () => clearInterval(interval);
+  }, [isSubmitting, filledDots, totalDots]);
+
+  const getDotDisplay = () => {
+    const emptyDot = '·';
+    const filledDot = '●';
+    
+    const dotsArray = Array(totalDots).fill(emptyDot);
+    
+    for (let i = 0; i < filledDots; i++) {
+      dotsArray[i] = filledDot;
+    }
+    
+    return dotsArray.join(' ');
+  };
 
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawSlug = e.target.value;
@@ -38,43 +117,56 @@ export const CreateOrganizationDialog: React.FC<CreateOrganizationDialogProps> =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setProgress(0); // Reset progress
+    setFilledDots(0); // Reset dots
+    setCurrentStepMessage(''); // Reset message
+
     if (!name.trim() || !slug.trim()) {
       setError('Organization Name and Slug are required.');
       return;
     }
 
     setIsSubmitting(true);
-    setError(null);
-    setSuccess(null);
+    // Start creating organization
+    setProgress(10);
+    setCurrentStepMessage("Creating organization...");
+
+    let responseData: OrganizationResponseData; // Use defined type
 
     try {
-      if (!session?.access_token) {
-        setError('Authentication required.');
-        setIsSubmitting(false);
-        return;
-      }
+      if (MOCK_MODE) {
+        await new Promise(resolve => setTimeout(resolve, MOCK_DELAY.createOrganization));
+        responseData = { name, slug, status, id: 'mock-org-' + Date.now() }; // Mock response
+      } else {
+        if (!session?.access_token) { // Check session token only if not in MOCK_MODE
+          setError('Authentication required.');
+          setIsSubmitting(false); // Also set isSubmitting to false
+          setProgress(0); // Reset progress on auth error
+          setCurrentStepMessage('Authentication failed.'); // Set message on auth error
+          return;
+        }
+        const response = await fetch('/api/organizations/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ name, slug, status }),
+        });
 
-      const response = await fetch('/api/organizations/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ name, slug, status }),
-      });
+        responseData = await response.json();
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(responseData.error || `Failed to create organization: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(responseData.error || `Failed to create organization: ${response.status}`);
+        }
       }
       
+      setProgress(100); // Creation complete
+      setCurrentStepMessage("Organization created successfully!");
       setSuccess(`Organization '${responseData.name}' created successfully!`);
-      // setName(''); // Keep fields for a moment to show success, or clear them
-      // setSlug('');
-      onOrganizationCreated(); // Callback to refresh list and potentially close dialog
-      // Optionally close dialog after a delay or let parent handle it via onOrganizationCreated
-      // setTimeout(onClose, 2000); 
+      onOrganizationCreated();
 
     } catch (err) {
       if (err instanceof Error) {
@@ -82,6 +174,8 @@ export const CreateOrganizationDialog: React.FC<CreateOrganizationDialogProps> =
       } else {
         setError('An unexpected error occurred while creating the organization.');
       }
+      setCurrentStepMessage('An error occurred.'); // Update message on error
+      setProgress(0); // Reset progress on error
     } finally {
       setIsSubmitting(false);
     }
@@ -90,82 +184,107 @@ export const CreateOrganizationDialog: React.FC<CreateOrganizationDialogProps> =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative border-2 border-[#075985]">
-        <button 
-          onClick={onClose} 
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
-          aria-label="Close dialog"
-        >
-          <X size={24} />
-        </button>
-        <h2 className="text-xl font-semibold text-[#075985] mb-4">Create New Organization</h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent className="bg-[#fffaf5] border-2 border-[#471803] rounded-none max-w-lg w-full">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-[#471803] text-xl">Create New Organization</AlertDialogTitle>
+          <AlertDialogDescription className="text-[#471803]/90">
+            Enter the details for the new organization.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {isSubmitting && (
+          <div className="my-4">
+            <div className="text-sm text-[#471803]/80 mb-1">{currentStepMessage}</div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 border border-[#471803]/30">
+              <div
+                className="bg-[#471803] h-2 rounded-full"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <div className="text-center text-lg font-mono text-[#471803]/70 mt-2 tracking-widest">
+              {getDotDisplay()}
+            </div>
+          </div>
+        )}
+
+        {error && !isSubmitting && (
+          <div className="flex items-center space-x-2 p-3 my-2 bg-red-100 border border-red-400 text-red-700 text-sm rounded-none">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-auto p-1">
+              <X size={18} />
+            </button>
+          </div>
+        )}
+        {success && !isSubmitting && (
+          <div className="flex items-center space-x-2 p-3 my-2 bg-green-100 border border-green-400 text-green-700 text-sm rounded-none">
+            <Check size={20} />
+            <span>{success}</span>
+             <button onClick={() => setSuccess(null)} className="ml-auto p-1">
+              <X size={18} />
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div>
-            <label htmlFor="orgName" className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
-            <input 
+            <Label htmlFor="orgName" className="text-[#471803]/90 block mb-1.5">Organization Name</Label>
+            <Input 
               type="text" 
               id="orgName" 
               value={name} 
               onChange={(e) => setName(e.target.value)} 
               required 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#075985] focus:border-[#075985] sm:text-sm"
+              className="bg-white border-[#471803]/50 focus:border-[#471803] focus:ring-[#471803] rounded-none w-full"
               placeholder="e.g., Acme Corporation"
+              disabled={isSubmitting}
             />
           </div>
 
           <div>
-            <label htmlFor="orgSlug" className="block text-sm font-medium text-gray-700 mb-1">Organization Slug</label>
-            <input 
+            <Label htmlFor="orgSlug" className="text-[#471803]/90 block mb-1.5">Organization Slug</Label>
+            <Input 
               type="text" 
               id="orgSlug" 
               value={slug} 
               onChange={handleSlugChange} 
               required 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#075985] focus:border-[#075985] sm:text-sm"
+              className="bg-white border-[#471803]/50 focus:border-[#471803] focus:ring-[#471803] rounded-none w-full"
               placeholder="e.g., acme-corp (auto-sanitized)"
-            />
-            {slug && <p className="text-xs text-gray-500 mt-1">Generated slug: {slug}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="orgStatus" className="block text-sm font-medium text-gray-700 mb-1">Initial Status</label>
-            <select 
-              id="orgStatus" 
-              value={status} 
-              onChange={(e) => setStatus(e.target.value)} 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#075985] focus:border-[#075985] sm:text-sm bg-white"
-            >
-              <option value="PENDING_SETUP">Pending Setup</option>
-              <option value="ACTIVE">Active</option>
-              <option value="DISABLED">Disabled</option>
-              {/* Add other statuses as needed */}
-            </select>
-          </div>
-
-          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</p>}
-          {success && <p className="text-sm text-green-600 bg-green-50 p-3 rounded-md">{success}</p>}
-
-          <div className="flex justify-end space-x-3 pt-2">
-            <button 
-              type="button" 
-              onClick={onClose} 
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 disabled:opacity-50 transition-colors"
+            />
+            {slug && <p className="text-xs text-[#471803]/70 mt-1">Generated slug: {slug}</p>}
+          </div>
+
+          <AlertDialogFooter className="mt-6 pt-4 border-t border-[#471803]/20">
+            <AlertDialogCancel 
+              onClick={() => {
+                onClose();
+                setError(null); // Also clear errors/success on cancel
+                setSuccess(null);
+                setName('');
+                setSlug('');
+                setStatus('PENDING_SETUP');
+                setProgress(0);
+                setCurrentStepMessage('');
+                setFilledDots(0);
+              }}
+              className="bg-white border border-[#471803]/50 text-[#471803] hover:bg-[#ffeedd] rounded-none px-4 py-2"
+              disabled={isSubmitting}
             >
               Cancel
-            </button>
-            <button 
+            </AlertDialogCancel>
+            <Button 
               type="submit" 
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#075985] hover:bg-sky-700 rounded-md border border-transparent disabled:opacity-50 transition-colors"
+              disabled={isSubmitting || !name || !slug}
+              className="bg-[#471803] hover:bg-[#471803]/90 text-white rounded-none px-4 py-2"
             >
               {isSubmitting ? 'Creating...' : 'Create Organization'}
-            </button>
-          </div>
+            </Button>
+          </AlertDialogFooter>
         </form>
-      </div>
-    </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }; 

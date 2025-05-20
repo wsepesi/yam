@@ -145,8 +145,8 @@ const AdminPage: React.FC = () => {
         {/* Main Content Area */}
         <div className="flex-1 px-12">
           <div className="flex justify-between items-center mb-4 pt-6">
-            <h1 className="text-2xl font-medium text-[#471803] relative">
-              Yam Admin
+            <h1 className="text-2xl font-bold text-[#471803] relative">
+              YAM ADMIN
               <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]"></div>
             </h1>
             {TAB_CONFIG[activeTab]?.title && (
