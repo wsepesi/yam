@@ -188,8 +188,8 @@ export default function Pickup() {
 
   const acProps: AcProps<Resident> = {
     apiRoute: 'get-residents',
-    acLabel: 'Resident',
-    displayOption: (resident: Resident) => `${resident.last_name}, ${resident.first_name}`,
+    acLabel: 'Student ID',
+    displayOption: (resident: Resident) => resident.student_id,
     record: resident,
     setRecord: setResident,
     setLoaded,
@@ -222,6 +222,11 @@ export default function Pickup() {
                     </button>
                   ) : null}
                 />
+                {resident && (
+                  <div className="mt-2 text-sm text-[#471803]">
+                    <p><strong>Selected Resident:</strong> {resident.first_name} {resident.last_name}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -233,7 +238,7 @@ export default function Pickup() {
 
             {packages && packages.length > 0 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-left-5">
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-y-auto max-h-72 pr-2">
                   <label className="block text-sm font-medium text-[#471803]">
                     Select Packages to Pick Up
                   </label>
