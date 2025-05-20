@@ -96,7 +96,7 @@ export const useRedirectPath = (): { path: string, isLoading: boolean } => {
 };
 
 // For persistent caching across page refreshes
-export const getMailroomDisplayName = async (mailroomSlug: string): Promise<string> => {
+export const getMailroomDisplayName = async (mailroomSlug: string): Promise<string | null> => {
   // Check localStorage first
   const cacheKey = `mailroom-name-${mailroomSlug}`;
   const cachedValue = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
@@ -113,13 +113,7 @@ export const getMailroomDisplayName = async (mailroomSlug: string): Promise<stri
     
     if (error || !data) { // data is the name string directly
       console.error('Error fetching mailroom name via RPC:', error, data);
-      // Fall back to hardcoded values (or remove if not desired)
-      switch (mailroomSlug.toLowerCase()) {
-        // case 'cobeen':
-        //   return 'COBEEN HALL';
-        default:
-          return 'Unknown Mailroom';
-      }
+      return null;
     }
     
     const displayName = data.toUpperCase(); // Assuming 'data' is the name string
@@ -130,11 +124,11 @@ export const getMailroomDisplayName = async (mailroomSlug: string): Promise<stri
     return displayName;
   } catch (error) {
     console.error('Exception fetching mailroom name via RPC:', error);
-    return 'Unknown Mailroom';
+    return null;
   }
 };
 
-export const getOrgDisplayName = async (orgSlug: string): Promise<string> => {
+export const getOrgDisplayName = async (orgSlug: string): Promise<string | null> => {
   try {
     // Query the database using RPC to get the organization name from the slug
     const { data, error } = await supabase.rpc('get_organization_name_by_slug', {
@@ -143,40 +137,34 @@ export const getOrgDisplayName = async (orgSlug: string): Promise<string> => {
     
     if (error || !data) { // data is the name string directly
       console.error('Error fetching organization name via RPC:', error);
-      // Fall back to hardcoded values (or remove if not desired)
-      switch (orgSlug.toLowerCase()) {
-        case 'marquette':
-          return 'MARQUETTE UNIVERSITY';
-        default:
-          return 'Unknown Organization';
-      }
+      return null;
     }
     
     return data.toUpperCase(); // Assuming 'data' is the name string
   } catch (error) {
     console.error('Exception fetching organization name via RPC:', error);
-    return 'Unknown Organization';
+    return null;
   }
 };
 
-// Sync versions of the display functions for cases where async cannot be used
-export const getMailroomDisplayNameSync = (mailroomSlug: string): string => { // TODO: resolve this
+// // Sync versions of the display functions for cases where async cannot be used
+// export const getMailroomDisplayNameSync = (mailroomSlug: string): string => { // TODO: resolve this
 
-  switch (mailroomSlug.toLowerCase()) {
-    case 'demo':
-      return 'Demo Mailroom';
-    case 'cobeen':
-        return 'Cobeen Hall'
-    default:
-      return 'Unknown Mailroom';
-  }
-};
+//   switch (mailroomSlug.toLowerCase()) {
+//     case 'demo':
+//       return 'Demo Mailroom';
+//     case 'cobeen':
+//         return 'Cobeen Hall'
+//     default:
+//       return 'Unknown Mailroom';
+//   }
+// };
 
-export const getOrgDisplayNameSync = (orgSlug: string): string => {
-  switch (orgSlug.toLowerCase()) {
-    case 'marquette':
-      return 'MARQUETTE UNIVERSITY';
-    default:
-      return 'Unknown Organization';
-  }
-}; 
+// export const getOrgDisplayNameSync = (orgSlug: string): string => {
+//   switch (orgSlug.toLowerCase()) {
+//     case 'marquette':
+//       return 'MARQUETTE UNIVERSITY';
+//     default:
+//       return 'Unknown Organization';
+//   }
+// }; 

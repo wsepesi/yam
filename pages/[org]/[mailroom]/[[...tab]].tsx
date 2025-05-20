@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getMailroomDisplayName, getOrgDisplayNameSync } from '@/lib/userPreferences';
+import { getMailroomDisplayName, getOrgDisplayName } from '@/lib/userPreferences';
 
 import Layout from '@/components/Layout';
 import ManageEmailContent from '@/components/mailroomTabs/ManageEmailContent';
@@ -71,6 +71,7 @@ export function UserTabPage() {
   const { role, isLoading } = useUserRole();
   const [orgDisplayName, setOrgDisplayName] = useState<string>('');
   const [mailroomDisplayName, setMailroomDisplayName] = useState<string>('');
+  const [isValidating, setIsValidating] = useState(true); // New state for validation
 
   // Get available tabs based on role
   const AVAILABLE_TABS = React.useMemo(() => {
@@ -92,6 +93,52 @@ export function UserTabPage() {
     return tab?.replace(/-/g, ' ');
   }, [tab]);
 
+  // useEffect for org and mailroom validation, and setting display names
+  useEffect(() => {
+    if (!router.isReady) {
+      setIsValidating(true); // Keep validating if router is not ready
+      return;
+    }
+
+    const orgSlug = typeof org === 'string' ? org : undefined;
+    const mailroomSlug = typeof mailroom === 'string' ? mailroom : undefined;
+
+    if (!orgSlug || !mailroomSlug) {
+      router.replace('/404');
+      return;
+    }
+
+    const validateOrgAndMailroom = async () => {
+      setIsValidating(true);
+      try {
+        // 1. Validate Org (async)
+        const fetchedOrgDisplayName = await getOrgDisplayName(orgSlug);
+        if (!fetchedOrgDisplayName) {
+          router.replace('/404');
+          return; // Exit early if org is not found
+        }
+        setOrgDisplayName(fetchedOrgDisplayName);
+
+        // 2. Validate Mailroom (async)
+        const fetchedMailroomDisplayName = await getMailroomDisplayName(mailroomSlug);
+        if (!fetchedMailroomDisplayName) {
+          router.replace('/404');
+          return; // Exit early if mailroom is not found
+        }
+        setMailroomDisplayName(fetchedMailroomDisplayName);
+
+      } catch (error) {
+        console.error("Error validating org or mailroom:", error);
+        router.replace('/404');
+      } finally {
+        setIsValidating(false);
+      }
+    };
+
+    validateOrgAndMailroom();
+
+  }, [router.isReady, org, mailroom, router]);
+
   // Store current tab in sessionStorage when it changes
   useEffect(() => {
     if (router.isReady && currentTabValue) {
@@ -103,6 +150,21 @@ export function UserTabPage() {
     }
   }, [router.isReady, currentTabValue, org, mailroom]);
 
+  // Cleanup sessionStorage on unmount
+  useEffect(() => {
+    // This function will be called when the component unmounts
+    return () => {
+      if (org && mailroom && typeof org === 'string' && typeof mailroom === 'string') {
+        try {
+          sessionStorage.removeItem(`${org}-${mailroom}-tab`);
+          console.log(`Cleaned up sessionStorage for ${org}-${mailroom}-tab`);
+        } catch (error) {
+          console.error('Error removing tab from sessionStorage on unmount:', error);
+        }
+      }
+    };
+  }, [org, mailroom]); // Rerun if org or mailroom change, cleanup will use their values at time of cleanup
+
   // Determine the active tab based on URL, using the extracted value
   const activeTab: TabType = React.useMemo(() => {
     if (!router.isReady) return 'overview';
@@ -110,21 +172,6 @@ export function UserTabPage() {
     if (!AVAILABLE_TABS.includes(currentTabValue as TabType)) return 'overview';
     return currentTabValue as TabType;
   }, [router.isReady, currentTabValue, AVAILABLE_TABS]);
-
-  // Set the display names when the org and mailroom values change
-  useEffect(() => {
-    if (org && typeof org === 'string') {
-      setOrgDisplayName(getOrgDisplayNameSync(org));
-    }
-    
-    if (mailroom && typeof mailroom === 'string') {
-      const fetchMailroomDisplayName = async () => {
-        const displayName = await getMailroomDisplayName(mailroom);
-        setMailroomDisplayName(displayName);
-      };
-      fetchMailroomDisplayName();
-    }
-  }, [org, mailroom]);
 
   // Handle invalid tabs and redirect to overview
   useEffect(() => {
@@ -141,8 +188,8 @@ export function UserTabPage() {
     }
   }, [router.isReady, currentTabValue, org, mailroom, router, AVAILABLE_TABS]);
 
-  // Handle loading state while router is hydrating or auth is loading
-  if (!router.isReady || isLoading) {
+  // Handle loading state while router is hydrating, auth is loading, or org/mailroom are validating
+  if (!router.isReady || isLoading || isValidating) {
     return <Layout title="Package Management" glassy={false}><UserTabPageSkeleton /></Layout>;
   }
 

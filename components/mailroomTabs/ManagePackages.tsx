@@ -188,7 +188,7 @@ export default function ManagePackages() {
   return (
     <div className="flex flex-col">
       <h2 className="text-xl font-medium text-[#471803] mb-4">Manage Packages</h2>
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[calc(100vh-200px)]">
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[60vh]">
         {error && (
           <div className="flex items-center space-x-2 p-2 bg-red-100 border border-red-400 text-red-700 text-xs rounded-none">
             <AlertCircle size={16} /><span>{error}</span>
