@@ -70,10 +70,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'Managers can only update users in their own organization' });
       }
       // Managers cannot promote to admin or change an admin's role
-      if (role === 'admin' || managerProfile.role === 'admin') {
+      if (role === 'admin' || managerProfile.role === 'admin' || managerProfile.role === 'super-admin') {
         return res.status(403).json({ error: 'Managers cannot promote to admin or modify an admin\'s role' });
       }
-    } else if (userProfile.role === 'admin') {
+    } else if (userProfile.role === 'admin' || userProfile.role === 'super-admin') {
       // Admins cannot modify a super-admin's role or promote someone to super-admin (though super-admin is not an assignable role here)
       if (managerProfile.role === 'super-admin') { // Target is super-admin
         return res.status(403).json({ error: 'Admins cannot modify a super-admin\'s role.' });

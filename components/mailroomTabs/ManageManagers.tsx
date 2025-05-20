@@ -21,7 +21,7 @@ import { useRouter } from 'next/router';
 interface Manager {
   id: string;
   email: string;
-  role: 'user' | 'manager' | 'admin';
+  role: 'user' | 'manager' | 'admin' | 'super-admin';
   created_at: string;
   status?: 'INVITED' | 'ACTIVE' | 'REMOVED';
 }
@@ -106,7 +106,7 @@ export default function ManageManagers() {
       if (usersRes.ok) {
         // Filter for users who are managers or admins AND are ACTIVE or INVITED
         const actualManagers = usersData.users.filter(
-          (user: Manager) => (user.role === 'manager' || user.role === 'admin') && (user.status === 'ACTIVE' || user.status === 'INVITED')
+          (user: Manager) => (user.role === 'manager' || user.role === 'admin' || user.role === 'super-admin') && (user.status === 'ACTIVE' || user.status === 'INVITED')
         );
         setManagers(actualManagers);
       } else {
@@ -195,7 +195,7 @@ export default function ManageManagers() {
   const handleRemoveManager = async (managerId: string) => {
     const manager = managers.find(m => m.id === managerId);
     if (manager) {
-      if (manager.role === 'admin') {
+      if (manager.role === 'admin' || manager.role === 'super-admin') {
         setError('Admin users cannot be removed.');
         setSuccess(null);
         return;
@@ -431,7 +431,7 @@ export default function ManageManagers() {
                           </span>
                         </td>
                         <td className="pl-1 py-4 whitespace-nowrap text-sm text-[#471803]">
-                          {(manager.role !== 'admin' && session?.user?.id !== manager.id) && (
+                          {(manager.role !== 'admin' && manager.role !== 'super-admin' && session?.user?.id !== manager.id) && (
                             <Button 
                               variant="ghost"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1"

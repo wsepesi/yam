@@ -84,10 +84,10 @@ export function UserTabPage() {
   // Get available tabs based on role
   const AVAILABLE_TABS = React.useMemo(() => {
     const tabs: TabType[] = [...USER_TABS];
-    if (role === 'manager' || role === 'admin') {
+    if (role === 'manager' || role === 'admin' || role === 'super-admin') {
       tabs.push(...MANAGER_TABS);
     }
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'super-admin') {
       tabs.push(...ADMIN_TABS);
     }
     return tabs;
@@ -233,8 +233,8 @@ export function UserTabPage() {
 
   // Group tabs by role level
   const userTabs = USER_TABS;
-  const managerTabs = (role === 'manager' || role === 'admin') ? MANAGER_TABS : [];
-  const adminTabs = (role === 'admin') ? ADMIN_TABS : [];
+  const managerTabs = (role === 'manager' || role === 'admin' || role === 'super-admin') ? MANAGER_TABS : [];
+  const adminTabs = (role === 'admin' || role === 'super-admin') ? ADMIN_TABS : [];
 
   // Render the page layout with tabs and active content
   return (

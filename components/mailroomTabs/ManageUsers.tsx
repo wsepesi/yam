@@ -20,7 +20,7 @@ import { useRouter } from 'next/router';
 
 type User = {
   id: string;
-  role: 'user' | 'manager' | 'admin';
+  role: 'user' | 'manager' | 'admin' | 'super-admin';
   created_at: string;
   email: string;
   status?: 'INVITED' | 'ACTIVE' | 'REMOVED';
@@ -29,7 +29,7 @@ type User = {
 type Invitation = {
   id: string;
   email: string;
-  role: 'user' | 'manager' | 'admin';
+  role: 'user' | 'manager' | 'admin' | 'super-admin';
   created_at: string;
   expires_at: string;
   status: 'PENDING' | 'RESOLVED' | 'FAILED';
@@ -181,8 +181,8 @@ const ManageUsers: React.FC = () => {
   const promptRemoveUser = (user: User) => {
     // Prevent admins or managers from being removed from this simplified user management UI
     // They should be managed in ManageManagers if applicable
-    if (user.role === 'admin' || user.role === 'manager') {
-        setError('Admins and Managers cannot be removed from this interface. Please use the Manage Managers tab for managers.');
+    if (user.role === 'admin' || user.role === 'manager' || user.role === 'super-admin') {
+        setError('Admins, Super-Admins and Managers cannot be removed from this interface. Please use the Manage Managers tab for managers.');
         setSuccess(null);
         return;
     }

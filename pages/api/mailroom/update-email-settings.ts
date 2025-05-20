@@ -73,7 +73,7 @@ export default async function handler(
     // Permission check: User must be admin or manager of the specific mailroom.
     // Adjust this logic based on your exact permission model.
     // (profileData.role === 'admin' && profileData.organization_id === /* mailroom's orgId */) ||
-    if (!(profileData.role === 'admin' || (profileData.role === 'manager' && profileData.mailroom_id === mailroomId))) {
+    if (!(profileData.role === 'admin' || profileData.role === 'super-admin' || (profileData.role === 'manager' && profileData.mailroom_id === mailroomId))) {
          return res.status(403).json({ error: 'Insufficient permissions to update settings for this mailroom.' });
     }
 
