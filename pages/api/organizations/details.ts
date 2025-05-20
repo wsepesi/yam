@@ -45,6 +45,8 @@ export default async function handler(
       return res.status(404).json({ error: 'Organization not found (unexpected).' });
     }
 
+    // Cache for 1 day, revalidate in background every hour
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=3600');
     return res.status(200).json({ 
       organizationId: organization.id,
       organizationName: organization.name 

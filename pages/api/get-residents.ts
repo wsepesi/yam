@@ -64,6 +64,7 @@ export default async function handler(
     //   added_by: res.added_by,
     // }));
 
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=300');
     return res.status(200).json({ records: residents as Resident[] });
   } catch (error) {
     console.error('Error fetching residents:', error);

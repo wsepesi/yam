@@ -87,6 +87,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: invitation.status
     }));
 
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60');
+    res.setHeader('Vary', 'Authorization');
     return res.status(200).json(formattedInvitations);
   } catch (error) {
     console.error('Error processing request:', error);

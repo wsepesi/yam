@@ -101,6 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Return the IDs
     console.log('Access granted: Returning organization and mailroom IDs');
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=3600');
     return res.status(200).json({
       organizationId: organization.id,
       mailroomId: mailroom.id

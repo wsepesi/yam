@@ -43,10 +43,6 @@ interface PackageTimestamp {
     created_at: string;
 }
 
-interface DistinctRecipientID {
-    resident_id: string;
-}
-
 const getMonthYearStrings = (numMonths: number): { name: string, isoMonth: string }[] => {
   const months: { name: string, isoMonth: string }[] = [];
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -74,6 +70,7 @@ export default async function handler(
 
   try {
     const supabaseAdmin = createAdminClient();
+
     const authHeader = req.headers.authorization;
     const userId = await getUserId(supabaseAdmin, authHeader);
 
@@ -87,7 +84,6 @@ export default async function handler(
       return res.status(400).json({ error: 'Organization slug is required and must be a string in query parameters' });
     }
 
-    // Fetch Organization ID and Name using the slug
     const { data: orgData, error: orgError } = await supabaseAdmin
       .from('organizations')
       .select('id, name') // Select id and name
@@ -99,7 +95,6 @@ export default async function handler(
     const organizationUUID = orgData.id; // This is the actual UUID
     const orgName = orgData.name;
 
-    // Authorization: Check if the user is part of the organization using the fetched organizationUUID
     const { count: orgUserCount, error: orgUserError } = await supabaseAdmin
       .from('organization_users')
       .select('', { count: 'exact', head: true })
@@ -127,58 +122,48 @@ export default async function handler(
     let overallTotalPackages = 0;
     let overallTotalResidents = 0;
 
+    const mailroomIDs = mailroomsData.map(mr => mr.id);
+
+    const { data: allPackages, error: allPackagesError } = await supabaseAdmin
+      .from('packages')
+      .select('id, mailroom_id, resident_id, status')
+      .in('mailroom_id', mailroomIDs);
+
+    if (allPackagesError) throw new Error(`Failed to fetch packages for mailrooms: ${allPackagesError.message}`);
+
+    const { data: allProfiles, error: allProfilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, mailroom_id')
+      .eq('organization_id', organizationUUID)
+      .in('mailroom_id', mailroomIDs);
+    
+    if (allProfilesError) throw new Error(`Failed to fetch profiles for mailrooms: ${allProfilesError.message}`);
+
     for (const mr of mailroomsData as MailroomCoreData[]) {
-      const { count: totalPackages, error: pkgError } = await supabaseAdmin
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('mailroom_id', mr.id);
-      if (pkgError) console.warn(`Error fetching package count for mailroom ${mr.id}: ${pkgError.message}`);
-      
-      // Fetch distinct recipient_ids and count them
-      const { data: distinctRecipients, error: distinctRecipientsError } = await supabaseAdmin
-        .from('packages')
-        .select('resident_id', { count: 'planned', head:false }) // Changed to planned to avoid actual distinct on DB if large
-        .eq('mailroom_id', mr.id)
+      const packagesForMailroom = allPackages?.filter(p => p.mailroom_id === mr.id) || [];
+      const profilesForMailroom = allProfiles?.filter(p => p.mailroom_id === mr.id) || [];
 
-      let totalResidents = 0;
-      if (distinctRecipientsError) {
-        console.warn(`Error fetching distinct recipients for mailroom ${mr.id}: ${distinctRecipientsError.message}. Falling back to 0.`);
-      } else if (distinctRecipients) {
-        // Count unique resident_ids from the fetched data
-        const uniqueIds = new Set(distinctRecipients.map((p: DistinctRecipientID) => p.resident_id));
-        totalResidents = uniqueIds.size;
-      }
+      const totalPackages = packagesForMailroom.length;
       
-      const { count: awaitingPickup, error: awaitError } = await supabaseAdmin
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('mailroom_id', mr.id)
-        .eq('status', 'WAITING');
-      if (awaitError) console.warn(`Error fetching awaiting pickup count for mailroom ${mr.id}: ${awaitError.message}`);
+      const uniqueResidentIds = new Set(packagesForMailroom.map(p => p.resident_id));
+      const totalResidents = uniqueResidentIds.size;
 
-      // Fetch total users for this mailroom from the profiles table
-      const { count: totalUsersInMailroom, error: usersError } = await supabaseAdmin
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', organizationUUID) 
-        .eq('mailroom_id', mr.id); 
+      const packagesAwaitingPickup = packagesForMailroom.filter(p => p.status === 'WAITING').length;
       
-      if (usersError) {
-        console.warn(`Error fetching user count for mailroom ${mr.id}: ${usersError.message}`);
-      }
+      const totalUsersInMailroom = profilesForMailroom.length;
 
       mailroomBreakdown.push({
         mailroomID: mr.id,
         mailroomName: mr.name,
         mailroomSlug: mr.slug,
-        totalPackages: totalPackages || 0,
-        totalResidents: totalResidents || 0,
-        packagesAwaitingPickup: awaitingPickup || 0,
-        mailroomStatus: mr.status || 'N/A', // Use mailroom status
-        totalUsersInMailroom: totalUsersInMailroom || 0, // Use fetched user count
+        totalPackages: totalPackages,
+        totalResidents: totalResidents,
+        packagesAwaitingPickup: packagesAwaitingPickup,
+        mailroomStatus: mr.status || 'N/A',
+        totalUsersInMailroom: totalUsersInMailroom,
       });
-      overallTotalPackages += (totalPackages || 0);
-      overallTotalResidents += (totalResidents || 0);
+      overallTotalPackages += totalPackages;
+      overallTotalResidents += totalResidents;
     }
 
     const numMonthsForChart = 6;
@@ -226,6 +211,13 @@ export default async function handler(
       monthlyChartData,
       mailroomBreakdown,
     };
+
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    // Since Authorization is used to determine access to the organization,
+    // and the data itself is org-specific but not user-specific within that org,
+    // we vary by Authorization. If different users within the same org see different stats,
+    // this approach needs re-evaluation or the endpoint might not be suitable for shared caching.
+    res.setHeader('Vary', 'Authorization');
 
     return res.status(200).json(responsePayload);
 

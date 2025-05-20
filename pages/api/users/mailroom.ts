@@ -81,6 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Return both users and pending invitations
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=3600');
     return res.status(200).json({
       users: users || [],
       invitations: invitations || []

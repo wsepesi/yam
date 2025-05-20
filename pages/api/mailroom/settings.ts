@@ -84,6 +84,8 @@ export default async function handler(
         // pickup_instructions: data.pickup_instructions,
     };
 
+    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=300');
+    res.setHeader('Vary', 'Authorization');
     return res.status(200).json(responseData);
 
   } catch (err) {

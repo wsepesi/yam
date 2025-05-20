@@ -34,5 +34,6 @@ export default function handler(
   }
 
   // In a real application, you would fetch this from a database
+  res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=300');
   res.status(200).json(students);
 } 
