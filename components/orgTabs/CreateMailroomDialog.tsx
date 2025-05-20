@@ -15,6 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/AuthContext'; // For API calls
 
+// MOCK_MODE: Set this to true to use mock API responses instead of real calls
+const MOCK_MODE = false;
+const MOCK_DELAY = {
+  createMailroom: 2000,   // 2 seconds delay
+  populateQueue: 3000,    // 3 seconds delay
+  inviteManager: 1500     // 1.5 seconds delay
+};
+
 interface CreateMailroomDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,6 +55,10 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentStepMessage, setCurrentStepMessage] = useState('');
+  const [filledDots, setFilledDots] = useState(0);
+  const totalDots = 7; // Total number of dots in the progress indicator
 
   useEffect(() => {
     if (mailroomName) {
@@ -56,10 +68,66 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
     }
   }, [mailroomName]);
 
+  // Progress-based dot filling
+  useEffect(() => {
+    if (progress === 0) {
+      setFilledDots(0);
+    } else if (progress <= 33) {
+      setFilledDots(2); // First milestone - mailroom creation
+    } else if (progress <= 66) {
+      setFilledDots(4); // Second milestone - queue population
+    } else if (progress <= 99) {
+      setFilledDots(6); // Third milestone - invitation sent
+    } else {
+      setFilledDots(totalDots); // Complete
+    }
+  }, [progress]);
+
+  // Time-based "walking" animation during waiting periods
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isSubmitting && filledDots < totalDots) {
+      let currentWalkingDot = filledDots;
+      
+      interval = setInterval(() => {
+        // Only animate the "next" dot after the filled ones
+        currentWalkingDot = (currentWalkingDot >= filledDots && currentWalkingDot < totalDots - 1) 
+          ? currentWalkingDot + 1 
+          : filledDots;
+          
+        setFilledDots(prev => {
+          // If an API call has returned and updated filledDots, don't override that
+          if (prev > currentWalkingDot) return prev;
+          return currentWalkingDot;
+        });
+      }, 300);
+    }
+    
+    return () => clearInterval(interval);
+  }, [isSubmitting, filledDots, totalDots]);
+
+  const getDotDisplay = () => {
+    const emptyDot = '·';
+    const filledDot = '●';
+    
+    const dotsArray = Array(totalDots).fill(emptyDot);
+    
+    // Fill in dots based on progress
+    for (let i = 0; i < filledDots; i++) {
+      dotsArray[i] = filledDot;
+    }
+    
+    return dotsArray.join(' ');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setProgress(0);
+    setFilledDots(0);
+    setCurrentStepMessage('');
 
     if (!mailroomName.trim()) {
       setError("Mailroom Name is required.");
@@ -85,56 +153,103 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
     setIsSubmitting(true);
 
     try {
-      // Step 1: Create the mailroom
-      const createMailroomResponse = await fetch('/api/mailrooms/create', { // Placeholder API
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          name: mailroomName,
-          slug: mailroomSlug,
-          organizationId: organizationId,
-        }),
-      });
+      // Starting mailroom creation
+      setProgress(10);
+      setCurrentStepMessage("Creating mailroom...");
+      
+      let newMailroomId;
+      
+      if (MOCK_MODE) {
+        // MOCK: Create mailroom
+        await new Promise(resolve => setTimeout(resolve, MOCK_DELAY.createMailroom));
+        newMailroomId = 'mock-mailroom-id-' + Date.now();
+      } else {
+        // REAL: Create mailroom
+        const createMailroomResponse = await fetch('/api/mailrooms/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            name: mailroomName,
+            slug: mailroomSlug,
+            organizationId: organizationId,
+          }),
+        });
 
-      const mailroomData = await createMailroomResponse.json();
+        const mailroomData = await createMailroomResponse.json();
 
-      if (!createMailroomResponse.ok) {
-        throw new Error(mailroomData.error || 'Failed to create mailroom.');
+        if (!createMailroomResponse.ok) {
+          throw new Error(mailroomData.error || 'Failed to create mailroom.');
+        }
+        
+        newMailroomId = mailroomData.id;
+      }
+      
+      // Mailroom created successfully
+      setProgress(33);
+      setCurrentStepMessage("Mailroom created. Populating package queue...");
+
+      if (MOCK_MODE) {
+        // MOCK: Populate queue
+        await new Promise(resolve => setTimeout(resolve, MOCK_DELAY.populateQueue));
+      } else {
+        // REAL: Populate the package queue
+        const populateQueueResponse = await fetch('/api/mailrooms/populate-package-queue', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ mailroomId: newMailroomId }),
+        });
+
+        const populateQueueData = await populateQueueResponse.json();
+
+        if (!populateQueueResponse.ok) {
+          throw new Error(populateQueueData.error || 'Mailroom created, but failed to populate package queue.');
+        }
+      }
+      
+      // Queue populated successfully
+      setProgress(66);
+      setCurrentStepMessage("Package queue populated. Sending manager invitation...");
+
+      if (MOCK_MODE) {
+        // MOCK: Invite manager
+        await new Promise(resolve => setTimeout(resolve, MOCK_DELAY.inviteManager));
+      } else {
+        // REAL: Invite the manager
+        const inviteManagerResponse = await fetch('/api/invitations/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            email: adminEmail,
+            organizationId: organizationId,
+            mailroomId: newMailroomId,
+            role: 'manager', // Or 'admin' depending on desired role for creator
+          }),
+        });
+
+        const invitationData = await inviteManagerResponse.json();
+
+        if (!inviteManagerResponse.ok) {
+          throw new Error(invitationData.error || 'Mailroom created and queue populated, but failed to send manager invitation.');
+        }
       }
 
-      const newMailroomId = mailroomData.id; // Assuming API returns the new mailroom's ID
-
-      // Step 2: Invite the manager
-      const inviteManagerResponse = await fetch('/api/invitations/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          email: adminEmail,
-          organizationId: organizationId,
-          mailroomId: newMailroomId,
-          role: 'manager', // Or 'admin' depending on desired role for creator
-        }),
-      });
-
-      const invitationData = await inviteManagerResponse.json();
-
-      if (!inviteManagerResponse.ok) {
-        // Potentially attempt to roll back mailroom creation or mark it as needing admin setup
-        throw new Error(invitationData.error || 'Mailroom created, but failed to send manager invitation.');
-      }
-
-      setSuccess(`Mailroom "${mailroomName}" created and invitation sent to ${adminEmail}.`);
+      // All steps completed
+      setProgress(100);
+      setCurrentStepMessage("All steps completed successfully!");
+      setSuccess(`Mailroom "${mailroomName}" created, package queue populated, and invitation sent to ${adminEmail}.`);
       setMailroomName('');
       setMailroomSlug('');
       setAdminEmail('');
       onMailroomCreated(); // Refresh the list
-      // onClose(); // Optionally close dialog on success, or let user close manually
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -142,6 +257,7 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
         setError('An unknown error occurred.');
       }
       console.error("Error creating mailroom or inviting manager:", err);
+      setCurrentStepMessage('An error occurred.'); // Update message on error
     } finally {
       setIsSubmitting(false);
     }
@@ -159,7 +275,22 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        {error && (
+        {isSubmitting && (
+          <div className="my-4">
+            <div className="text-sm text-[#471803]/80 mb-1">{currentStepMessage}</div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 border border-[#471803]/30">
+              <div
+                className="bg-[#471803] h-2 rounded-full"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <div className="text-center text-lg font-mono text-[#471803]/70 mt-2 tracking-widest">
+              {getDotDisplay()}
+            </div>
+          </div>
+        )}
+
+        {error && !isSubmitting && (
           <div className="flex items-center space-x-2 p-3 my-2 bg-red-100 border border-red-400 text-red-700 text-sm rounded-none">
             <AlertCircle size={20} />
             <span>{error}</span>
@@ -168,7 +299,7 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
             </button>
           </div>
         )}
-        {success && (
+        {success && !isSubmitting && (
           <div className="flex items-center space-x-2 p-3 my-2 bg-green-100 border border-green-400 text-green-700 text-sm rounded-none">
             <Check size={20} />
             <span>{success}</span>

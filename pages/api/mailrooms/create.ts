@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch current user's profile to check permissions
     const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles') // Assuming 'profiles' is your user profiles table
-      .select('role, organization_id') // Assuming these columns exist
+      .select('role, organization_id, email') // Assuming these columns exist
       .eq('id', userId)
       .single();
 
@@ -50,14 +50,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Database operation to create the mailroom
     const { data: newMailroom, error: createError } = await supabaseAdmin
-      .from('mailrooms') // Replace 'mailrooms' with your actual table name
+      .from('mailrooms')
       .insert([
         {
           name: name as string,
           slug: slug as string,
           organization_id: organizationId as string, // Ensure your DB column name matches
           created_by: userId, // Link the mailroom to the user who created it
-          // status: 'ACTIVE', // Example: set a default status if applicable
+          status: 'ACTIVE', // Example: set a default status if applicable
+          admin_email: userProfile.email,
         },
       ])
       .select() // Select all columns of the newly created row
