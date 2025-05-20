@@ -116,6 +116,11 @@ export default function ManageRoster() {
       columnFilters,
       columnVisibility,
     },
+    initialState: {
+      pagination: {
+        pageSize: 9,
+      },
+    },
   });
 
   const handleUploadRosterButtonClick = () => {
@@ -161,7 +166,7 @@ export default function ManageRoster() {
 
             const missingHeaders = normalizedExpectedHeaders.filter(expectedHeader => !normalizedHeadersFromFile.includes(expectedHeader));
             if (missingHeaders.length > 0) {
-                setFileError(`Missing required headers: ${missingHeaders.join(', ')}. Expected: ${expectedHeaders.join(', ')}`);
+                setFileError(`Missing required headers: ${missingHeaders.join(', ')}. Expected: ${expectedHeaders.join(', ')}. These should be the first 4 columns of the file.`);
                 return;
             }
             
@@ -181,6 +186,20 @@ export default function ManageRoster() {
             if (dataRows.length === 0) {
                 setFileError("No data rows found in the file after headers.");
                 return;
+            }
+
+            // Validate resident_id lengths
+            let firstResidentIdLength: number | null = null;
+            for (const row of dataRows) {
+              const residentId = row.resident_id ? String(row.resident_id) : '';
+              if (residentId) { // Only check if resident_id is present
+                if (firstResidentIdLength === null) {
+                  firstResidentIdLength = residentId.length;
+                } else if (residentId.length !== firstResidentIdLength) {
+                  setFileError("Resident IDs have inconsistent lengths. This might indicate that leading zeros were dropped during export. Please ensure all Resident IDs are formatted as text and have the same number of digits.");
+                  return;
+                }
+              }
             }
 
             setParsedData(dataRows);
@@ -246,27 +265,13 @@ export default function ManageRoster() {
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-xl font-medium text-[#471803] mb-4">Manage Roster</h2>
+      <h2 className="text-xl font-medium text-[#471803] mb-2">Manage Roster</h2>
       
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center">
         <div>
           {/* Space for other buttons or controls if needed in the future */}
         </div>
-        <Button 
-          onClick={handleUploadRosterButtonClick}
-          variant="outline"
-          className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
-        >
-          <Upload size={16} className="mr-2" />
-          Upload Roster
-        </Button>
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
-            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-        />
+        {/* Button and input will be moved from here */}
       </div>
 
       {/* Basic File Upload UI - to be replaced/enhanced with a modal */}
@@ -342,7 +347,7 @@ export default function ManageRoster() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 max-h-[calc(100vh-250px)]"> {/* Adjusted max-h for the new button section */}
+      <div className="flex-1 space-y-4 pr-1"> {/* Adjusted max-h for the new button section */}
         {error && (
           <div className="flex items-center space-x-2 p-2 bg-red-100 border border-red-400 text-red-700 text-xs rounded-none">
             <AlertCircle size={16} /><span>{error}</span>
@@ -378,6 +383,22 @@ export default function ManageRoster() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {/* Upload Roster Button and input will be inserted here */}
+              <Button 
+                onClick={handleUploadRosterButtonClick}
+                variant="outline"
+                className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
+              >
+                <Upload size={16} className="mr-2" />
+                Upload Roster
+              </Button>
+              <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  className="hidden" 
+                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+              />
             </div>
           </div>
           {isLoading && (
