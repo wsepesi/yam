@@ -319,9 +319,11 @@ export const withAuth = <P extends object>(
       if (!isLoading && isAuthenticated && userProfile) {
         if (
           requiredRole &&
-          userProfile.role !== requiredRole &&
-          userProfile.role !== 'admin' &&
-          userProfile.role !== 'super-admin'
+          (userProfile.role !== 'admin' && userProfile.role !== 'super-admin') &&
+          !(
+            userProfile.role === requiredRole ||
+            (requiredRole === 'user' && userProfile.role === 'manager')
+          )
         ) {
           router.push('/unauthorized');
         }
@@ -348,9 +350,11 @@ export const withAuth = <P extends object>(
     if (
       requiredRole &&
       userProfile &&
-      userProfile.role !== requiredRole &&
-      userProfile.role !== 'admin' &&
-      userProfile.role !== 'super-admin'
+      (userProfile.role !== 'admin' && userProfile.role !== 'super-admin') &&
+      !(
+        userProfile.role === requiredRole ||
+        (requiredRole === 'user' && userProfile.role === 'manager')
+      )
     ) {
       return null;
     }
