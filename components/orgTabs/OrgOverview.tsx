@@ -84,7 +84,7 @@ const SkeletonChart = () => (
 export default function OrgOverview() {
   const { session } = useAuth();
   const router = useRouter();
-  const { org: orgId } = router.query;
+  const { org: orgSlug } = router.query;
 
   const [stats, setStats] = useState<OrgOverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +92,7 @@ export default function OrgOverview() {
 
   useEffect(() => {
     const fetchOrgStats = async () => {
-      if (!orgId || typeof orgId !== 'string') {
+      if (!orgSlug || typeof orgSlug !== 'string') {
         setLoading(false);
         return;
       }
@@ -105,7 +105,7 @@ export default function OrgOverview() {
           return;
         }
 
-        const response = await fetch(`/api/get-org-overview-stats?orgId=${orgId}`, {
+        const response = await fetch(`/api/get-org-overview-stats?orgSlug=${orgSlug}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -133,7 +133,7 @@ export default function OrgOverview() {
     if (router.isReady) {
       fetchOrgStats();
     }
-  }, [session, orgId, router.isReady]);
+  }, [session, orgSlug, router.isReady]);
 
   if (loading) {
     return (

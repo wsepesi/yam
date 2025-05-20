@@ -15,6 +15,7 @@ interface MailroomCoreData {
     id: string;
     name: string;
     slug: string;
+    status: string; // Added status
 }
 
 interface MailroomBreakdownData {
@@ -24,6 +25,8 @@ interface MailroomBreakdownData {
   totalPackages: number;
   totalResidents: number;
   packagesAwaitingPickup: number;
+  mailroomStatus: string; // Added mailroomStatus
+  totalUsersInMailroom: number; // Added totalUsersInMailroom
 }
 
 export interface OrgOverviewStats { 
@@ -78,20 +81,21 @@ export default async function handler(
         return res.status(401).json({ error: 'Invalid or expired session' });
     }
 
-    const { orgId: orgSlug } = req.query; // Rename to orgSlug for clarity
+    const { orgSlug } = req.query;
+
     if (!orgSlug || typeof orgSlug !== 'string') {
-      return res.status(400).json({ error: 'Organization slug (orgId) is required in query parameters' });
+      return res.status(400).json({ error: 'Organization slug is required and must be a string in query parameters' });
     }
 
     // Fetch Organization ID and Name using the slug
     const { data: orgData, error: orgError } = await supabaseAdmin
       .from('organizations')
       .select('id, name') // Select id and name
-      .eq('slug', orgSlug) // Query by slug
+      .eq('slug', orgSlug as string) // Query by slug
       .single();
 
     if (orgError) throw new Error(`Failed to fetch organization details: ${orgError.message}`);
-    if (!orgData) throw new Error('Organization not found for the provided slug.');
+    if (!orgData) throw new Error(`Organization not found for the provided slug: ${orgSlug}`);
     const organizationUUID = orgData.id; // This is the actual UUID
     const orgName = orgData.name;
 
@@ -112,7 +116,7 @@ export default async function handler(
     
     const { data: mailroomsData, error: mailroomsError } = await supabaseAdmin
       .from('mailrooms')
-      .select('id, name, slug')
+      .select('id, name, slug, status') // Added status
       .eq('organization_id', organizationUUID); // Use organizationUUID
 
     if (mailroomsError) throw new Error(`Failed to fetch mailrooms: ${mailroomsError.message}`);
@@ -152,6 +156,17 @@ export default async function handler(
         .eq('status', 'WAITING');
       if (awaitError) console.warn(`Error fetching awaiting pickup count for mailroom ${mr.id}: ${awaitError.message}`);
 
+      // Fetch total users for this mailroom from the profiles table
+      const { count: totalUsersInMailroom, error: usersError } = await supabaseAdmin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organizationUUID) 
+        .eq('mailroom_id', mr.id); 
+      
+      if (usersError) {
+        console.warn(`Error fetching user count for mailroom ${mr.id}: ${usersError.message}`);
+      }
+
       mailroomBreakdown.push({
         mailroomID: mr.id,
         mailroomName: mr.name,
@@ -159,6 +174,8 @@ export default async function handler(
         totalPackages: totalPackages || 0,
         totalResidents: totalResidents || 0,
         packagesAwaitingPickup: awaitingPickup || 0,
+        mailroomStatus: mr.status || 'N/A', // Use mailroom status
+        totalUsersInMailroom: totalUsersInMailroom || 0, // Use fetched user count
       });
       overallTotalPackages += (totalPackages || 0);
       overallTotalResidents += (totalResidents || 0);

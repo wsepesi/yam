@@ -18,7 +18,8 @@ export default async function handler(
     // Ensure user is authenticated
     await getUserId(supabaseAdmin, authHeader);
 
-    const { orgSlug } = req.query;
+    const { slug } = req.query;
+    const orgSlug = slug as string;
 
     if (!orgSlug || typeof orgSlug !== 'string') {
       return res.status(400).json({ error: 'Organization slug is required.' });
