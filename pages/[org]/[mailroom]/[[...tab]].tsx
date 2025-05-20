@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getMailroomDisplayName, getOrgDisplayName } from '@/lib/userPreferences';
 
 import Layout from '@/components/Layout';
@@ -67,11 +67,19 @@ type TabType = UserTabType | ManagerTabType | AdminTabType;
 
 export function UserTabPage() {
   const router = useRouter();
-  const { tab, org, mailroom } = router.query;
+  const { tab, org: orgQuery, mailroom: mailroomQuery } = router.query; // Destructure with new names
   const { role, isLoading } = useUserRole();
   const [orgDisplayName, setOrgDisplayName] = useState<string>('');
   const [mailroomDisplayName, setMailroomDisplayName] = useState<string>('');
-  const [isValidating, setIsValidating] = useState(true); // New state for validation
+  const [isValidating, setIsValidating] = useState(true);
+
+  // Refs to store previously validated slugs
+  const prevOrgSlugRef = useRef<string | undefined>(undefined);
+  const prevMailroomSlugRef = useRef<string | undefined>(undefined);
+
+  // Memoize orgSlug and mailroomSlug
+  const orgSlug = useMemo((): string | undefined => (typeof orgQuery === 'string' ? orgQuery : undefined), [orgQuery]);
+  const mailroomSlug = useMemo((): string | undefined => (typeof mailroomQuery === 'string' ? mailroomQuery : undefined), [mailroomQuery]);
 
   // Get available tabs based on role
   const AVAILABLE_TABS = React.useMemo(() => {
@@ -96,74 +104,83 @@ export function UserTabPage() {
   // useEffect for org and mailroom validation, and setting display names
   useEffect(() => {
     if (!router.isReady) {
-      setIsValidating(true); // Keep validating if router is not ready
+      setIsValidating(true);
       return;
     }
 
-    const orgSlug = typeof org === 'string' ? org : undefined;
-    const mailroomSlug = typeof mailroom === 'string' ? mailroom : undefined;
-
     if (!orgSlug || !mailroomSlug) {
+      // If slugs are missing after router is ready, it's likely an invalid path
       router.replace('/404');
       return;
     }
 
-    const validateOrgAndMailroom = async () => {
-      setIsValidating(true);
-      try {
-        // 1. Validate Org (async)
-        const fetchedOrgDisplayName = await getOrgDisplayName(orgSlug);
-        if (!fetchedOrgDisplayName) {
+    const needsValidation =
+      !orgDisplayName || // Org display name not fetched
+      !mailroomDisplayName || // Mailroom display name not fetched
+      orgSlug !== prevOrgSlugRef.current || // Org slug changed
+      mailroomSlug !== prevMailroomSlugRef.current; // Mailroom slug changed
+
+    if (needsValidation) {
+      const validateOrgAndMailroom = async () => {
+        setIsValidating(true);
+        try {
+          // 1. Validate Org (async)
+          const fetchedOrgDisplayName = await getOrgDisplayName(orgSlug!);
+          if (!fetchedOrgDisplayName) {
+            router.replace('/404');
+            return;
+          }
+          setOrgDisplayName(fetchedOrgDisplayName);
+          prevOrgSlugRef.current = orgSlug; // Store current orgSlug after successful validation
+
+          // 2. Validate Mailroom (async)
+          const fetchedMailroomDisplayName = await getMailroomDisplayName(mailroomSlug!);
+          if (!fetchedMailroomDisplayName) {
+            router.replace('/404');
+            return;
+          }
+          setMailroomDisplayName(fetchedMailroomDisplayName);
+          prevMailroomSlugRef.current = mailroomSlug; // Store current mailroomSlug after successful validation
+
+        } catch (error) {
+          console.error("Error validating org or mailroom:", error);
           router.replace('/404');
-          return; // Exit early if org is not found
+        } finally {
+          setIsValidating(false);
         }
-        setOrgDisplayName(fetchedOrgDisplayName);
-
-        // 2. Validate Mailroom (async)
-        const fetchedMailroomDisplayName = await getMailroomDisplayName(mailroomSlug);
-        if (!fetchedMailroomDisplayName) {
-          router.replace('/404');
-          return; // Exit early if mailroom is not found
-        }
-        setMailroomDisplayName(fetchedMailroomDisplayName);
-
-      } catch (error) {
-        console.error("Error validating org or mailroom:", error);
-        router.replace('/404');
-      } finally {
-        setIsValidating(false);
-      }
-    };
-
-    validateOrgAndMailroom();
-
-  }, [router.isReady, org, mailroom, router]);
+      };
+      validateOrgAndMailroom();
+    } else {
+      // Slugs haven't changed and display names are present, no need to re-validate
+      setIsValidating(false);
+    }
+  }, [router.isReady, orgSlug, mailroomSlug, orgDisplayName, mailroomDisplayName, router]);
 
   // Store current tab in sessionStorage when it changes
   useEffect(() => {
-    if (router.isReady && currentTabValue) {
+    if (router.isReady && currentTabValue && orgSlug && mailroomSlug) {
       try {
-        sessionStorage.setItem(`${org}-${mailroom}-tab`, currentTabValue);
+        sessionStorage.setItem(`${orgSlug}-${mailroomSlug}-tab`, currentTabValue);
       } catch (error) {
         console.error('Error storing tab in sessionStorage:', error);
       }
     }
-  }, [router.isReady, currentTabValue, org, mailroom]);
+  }, [router.isReady, currentTabValue, orgSlug, mailroomSlug]);
 
   // Cleanup sessionStorage on unmount
   useEffect(() => {
     // This function will be called when the component unmounts
     return () => {
-      if (org && mailroom && typeof org === 'string' && typeof mailroom === 'string') {
+      if (orgSlug && mailroomSlug) {
         try {
-          sessionStorage.removeItem(`${org}-${mailroom}-tab`);
-          console.log(`Cleaned up sessionStorage for ${org}-${mailroom}-tab`);
+          sessionStorage.removeItem(`${orgSlug}-${mailroomSlug}-tab`);
+          console.log(`Cleaned up sessionStorage for ${orgSlug}-${mailroomSlug}-tab`);
         } catch (error) {
           console.error('Error removing tab from sessionStorage on unmount:', error);
         }
       }
     };
-  }, [org, mailroom]); // Rerun if org or mailroom change, cleanup will use their values at time of cleanup
+  }, [orgSlug, mailroomSlug]); // Rerun if orgSlug or mailroomSlug change
 
   // Determine the active tab based on URL, using the extracted value
   const activeTab: TabType = React.useMemo(() => {
@@ -175,18 +192,18 @@ export function UserTabPage() {
 
   // Handle invalid tabs and redirect to overview
   useEffect(() => {
-    if (router.isReady) {
+    if (router.isReady && orgSlug && mailroomSlug) {
       // Only redirect if we have:
       // 1. A tab value that's not empty
       // 2. Available tabs are loaded
       // 3. The current tab isn't in the available tabs
-      if (currentTabValue && 
-          AVAILABLE_TABS.length > 0 && 
+      if (currentTabValue &&
+          AVAILABLE_TABS.length > 0 &&
           !AVAILABLE_TABS.includes(currentTabValue as TabType)) {
-        router.replace(`/${org}/${mailroom}`);
+        router.replace(`/${orgSlug}/${mailroomSlug}`);
       }
     }
-  }, [router.isReady, currentTabValue, org, mailroom, router, AVAILABLE_TABS]);
+  }, [router.isReady, currentTabValue, orgSlug, mailroomSlug, router, AVAILABLE_TABS]);
 
   // Handle loading state while router is hydrating, auth is loading, or org/mailroom are validating
   if (!router.isReady || isLoading || isValidating) {
@@ -195,17 +212,22 @@ export function UserTabPage() {
 
   const handleTabClick = (newTab: TabType) => {
     const urlTab = newTab.replace(/\s+/g, '-');
+    // Ensure orgSlug and mailroomSlug are defined before using them
+    if (!orgSlug || !mailroomSlug) {
+      console.error("Org or Mailroom slug is undefined. Cannot navigate.");
+      return;
+    }
     const path = newTab === 'overview'
-      ? `/${org}/${mailroom}`
-      : `/${org}/${mailroom}/${urlTab}`;
-    
+      ? `/${orgSlug}/${mailroomSlug}`
+      : `/${orgSlug}/${mailroomSlug}/${urlTab}`;
+
     // Store the selected tab in sessionStorage
     try {
-      sessionStorage.setItem(`${org}-${mailroom}-tab`, newTab);
+      sessionStorage.setItem(`${orgSlug}-${mailroomSlug}-tab`, newTab);
     } catch (error) {
       console.error('Error storing tab in sessionStorage:', error);
     }
-    
+
     router.push(path, undefined, { shallow: true });
   };
 
@@ -298,11 +320,11 @@ export function UserTabPage() {
                 <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]"></div>
               </h1>
               <h2 className="text-xl font-semibold text-[#471803] italic relative">
-                {TAB_CONFIG[activeTab].title}
+                {TAB_CONFIG[activeTab] ? TAB_CONFIG[activeTab].title : 'Loading...'}
                 <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]"></div>
               </h2>
             </div>          
-            {React.createElement(TAB_CONFIG[activeTab].Component)}
+            {TAB_CONFIG[activeTab] && React.createElement(TAB_CONFIG[activeTab].Component)}
           </div>
         </div>
       </div>
