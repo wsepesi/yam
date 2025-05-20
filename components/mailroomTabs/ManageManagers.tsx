@@ -200,6 +200,12 @@ export default function ManageManagers() {
         setSuccess(null);
         return;
       }
+      // Check if the manager trying to be removed is the current user
+      if (session && session.user && manager.id === session.user.id) {
+        setError('You cannot remove yourself.');
+        setSuccess(null);
+        return;
+      }
       setManagerToRemove(manager);
       setShowRemoveConfirm(true);
     } else {
@@ -425,7 +431,7 @@ export default function ManageManagers() {
                           </span>
                         </td>
                         <td className="pl-1 py-4 whitespace-nowrap text-sm text-[#471803]">
-                          {manager.role !== 'admin' && (
+                          {(manager.role !== 'admin' && session?.user?.id !== manager.id) && (
                             <Button 
                               variant="ghost"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1"
