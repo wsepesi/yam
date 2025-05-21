@@ -19,32 +19,46 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { residents: newResidentsData, orgSlug, mailroomSlug } = req.body as { residents: UploadedResident[], orgSlug: string, mailroomSlug: string };
+
+  if (!newResidentsData || !Array.isArray(newResidentsData) || newResidentsData.length === 0 || !orgSlug || !mailroomSlug) {
+    return res.status(400).json({ error: 'No resident data provided, or orgSlug/mailroomSlug missing, or data is invalid.' });
+  }
+
   try {
     const supabaseAdmin = createAdminClient();
     const authHeader = req.headers.authorization;
     const userId = await getUserId(supabaseAdmin, authHeader);
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return res.status(401).json({ error: 'User not authenticated or staff ID cannot be determined for logging.' });
     }
 
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('mailroom_id')
-      .eq('id', userId)
+    // Fetch mailroom_id based on orgSlug and mailroomSlug
+    const { data: mailroomRecord, error: mailroomFetchError } = await supabaseAdmin
+      .from('mailrooms')
+      .select('id, organization_id')
+      .eq('slug', mailroomSlug)
       .single();
 
-    if (profileError || !profileData?.mailroom_id) {
-      console.error('Error fetching profile or mailroom_id:', profileError);
-      return res.status(400).json({ error: 'User not associated with a mailroom' });
+    if (mailroomFetchError || !mailroomRecord) {
+      console.error(`Error fetching mailroom by slug ${mailroomSlug}:`, mailroomFetchError);
+      return res.status(404).json({ error: 'Mailroom not found.' });
     }
-    const mailroomId = profileData.mailroom_id;
 
-    const newResidentsData = req.body.residents as UploadedResident[];
+    const { data: orgData, error: orgFetchError } = await supabaseAdmin
+      .from('organizations')
+      .select('id')
+      .eq('slug', orgSlug)
+      .eq('id', mailroomRecord.organization_id)
+      .single();
 
-    if (!newResidentsData || !Array.isArray(newResidentsData) || newResidentsData.length === 0) {
-      return res.status(400).json({ error: 'No resident data provided or data is invalid.' });
+    if (orgFetchError || !orgData) {
+      console.error(`Error fetching organization by slug ${orgSlug} or mailroom mismatch:`, orgFetchError);
+      return res.status(404).json({ error: 'Organization not found or mailroom does not belong to it.' });
     }
+    
+    const mailroomId = mailroomRecord.id;
 
     // Validate incoming data - ensure required fields are present
     for (const resident of newResidentsData) {

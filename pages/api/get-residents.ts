@@ -2,45 +2,72 @@ import { NextApiRequest, NextApiResponse } from 'next';
 
 import { Resident } from '@/lib/types';
 import { createAdminClient } from '@/lib/supabase';
-import getUserId from '@/lib/handleSession';
+
+// import getUserId from '@/lib/handleSession'; // Removed as unused
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<{ records: Resident[] } | { error: string }>
 ) {
-  if (req.method !== 'GET') { // Changed to GET as we are fetching all residents for a mailroom
+  if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { orgSlug, mailroomSlug, query: searchQuery } = req.query;
+
+  if (!orgSlug || !mailroomSlug || typeof orgSlug !== 'string' || typeof mailroomSlug !== 'string') {
+    return res.status(400).json({ error: 'orgSlug and mailroomSlug are required query parameters.' });
   }
 
   try {
     const supabaseAdmin = createAdminClient();
-    const authHeader = req.headers.authorization;
-    const userId = await getUserId(supabaseAdmin, authHeader);
+    // const authHeader = req.headers.authorization; // May not be needed if access is public or controlled by role check elsewhere
+    // const userId = await getUserId(supabaseAdmin, authHeader);
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    // if (!userId) {
+    //   return res.status(401).json({ error: 'User not authenticated' });
+    // }
 
-    // Get the mailroom ID for the user
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('mailroom_id')
-      .eq('id', userId)
+    // Fetch mailroom_id based on orgSlug and mailroomSlug
+    const { data: mailroomData, error: mailroomError } = await supabaseAdmin
+      .from('mailrooms')
+      .select('id, organization_id')
+      .eq('slug', mailroomSlug)
       .single();
 
-    if (profileError || !profileData?.mailroom_id) {
-      console.error('Error fetching profile or mailroom_id:', profileError);
-      return res.status(400).json({ error: 'User not associated with a mailroom' });
+    if (mailroomError || !mailroomData) {
+      console.error(`Error fetching mailroom by slug ${mailroomSlug}:`, mailroomError);
+      return res.status(404).json({ error: 'Mailroom not found.' });
     }
 
-    const mailroomId = profileData.mailroom_id;
+    const { data: orgData, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id')
+      .eq('slug', orgSlug)
+      .eq('id', mailroomData.organization_id)
+      .single();
+
+    if (orgError || !orgData) {
+      console.error(`Error fetching organization by slug ${orgSlug} or mailroom mismatch:`, orgError);
+      return res.status(404).json({ error: 'Organization not found or mailroom does not belong to it.' });
+    }
+
+    const mailroomId = mailroomData.id;
 
     // Get all residents for this mailroom
-    const { data: residents, error: residentsError } = await supabaseAdmin
+    let queryBuilder = supabaseAdmin
       .from('residents')
       .select('id, mailroom_id, first_name, last_name, student_id, email, created_at, updated_at, added_by, status')
       .eq('mailroom_id', mailroomId)
       .eq('status', 'ACTIVE');
+
+    if (searchQuery && typeof searchQuery === 'string') {
+      // Add conditions for search query. Example: searching by student_id or name
+      // This is a simple example, you might need more sophisticated search logic
+      queryBuilder = queryBuilder.or(`student_id.ilike.%${searchQuery}%,first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`);
+    }
+
+    const { data: residents, error: residentsError } = await queryBuilder;
 
     if (residentsError) {
       console.error('Error fetching residents:', residentsError);

@@ -4,6 +4,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useEffect, useState } from 'react';
 
 import AutocompleteWithDb from '@/components/AutocompleteWithDb';
+import { MailroomTabProps } from '@/lib/types/MailroomTabProps';
 import ReportName from '@/components/ReportName';
 import { useAuth } from '@/context/AuthContext';
 import { z } from 'zod';
@@ -24,7 +25,7 @@ interface PackageAlert extends PackageType {
   id: string;
 }
 
-export default function Register() {
+export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const { session } = useAuth();
   const [addingPackage, setAddingPackage] = useState(false);
   const [alerts, setAlerts] = useState<PackageAlert[]>([]);
@@ -75,7 +76,9 @@ export default function Register() {
         Last: validatedData.resident.last_name,
         Email: validatedData.resident.email,
         provider: validatedData.carrier,
-        residentId: validatedData.resident.student_id
+        residentId: validatedData.resident.student_id,
+        orgSlug,
+        mailroomSlug
       };
       if (!session) {
         setError('You must be logged in to send invitations');
@@ -89,7 +92,7 @@ export default function Register() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
          },
-        body: JSON.stringify(pkg)
+        body: JSON.stringify({ ...pkg, orgSlug, mailroomSlug })
       });
 
       if (!res.ok) {
@@ -126,7 +129,7 @@ export default function Register() {
   };
 
   const acProps: AcProps<Resident> = {
-    apiRoute: 'get-residents',
+    apiRoute: orgSlug && mailroomSlug ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}` : 'get-residents',
     acLabel: 'Resident',
     displayOption: (resident: Resident) => `${resident.last_name}, ${resident.first_name}`,
     record,

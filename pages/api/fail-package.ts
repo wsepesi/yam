@@ -13,34 +13,57 @@ export default async function handler(
   }
 
   try {
-    const failedPackage = req.body as Package;
-    const supabaseAdmin = createAdminClient()
-    const authHeader = req.headers.authorization;
-    const userId = await getUserId(supabaseAdmin, authHeader)
-    
-    // Get the mailroom ID for the user
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('mailroom_id')
-      .eq('id', userId)
-      .single();
-    
-    if (profileError || !profileData?.mailroom_id) {
-      return res.status(400).json({ error: 'User not associated with a mailroom' });
+    const { orgSlug, mailroomSlug, ...failedPackage } = req.body as Package & { orgSlug: string, mailroomSlug: string, error?: string };
+
+    if (!failedPackage || !orgSlug || !mailroomSlug) {
+      return res.status(400).json({ error: 'Failed package data, orgSlug, and mailroomSlug are required' });
     }
+
+    const supabaseAdmin = createAdminClient();
+    const authHeader = req.headers.authorization;
+    const userId = await getUserId(supabaseAdmin, authHeader);
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized or unable to determine staff ID for logging failure.' });
+    }
+
+    const { data: mailroomRecord, error: mailroomError } = await supabaseAdmin
+      .from('mailrooms')
+      .select('id, organization_id')
+      .eq('slug', mailroomSlug)
+      .single();
+
+    if (mailroomError || !mailroomRecord) {
+      console.error(`Error fetching mailroom by slug ${mailroomSlug} for failure log:`, mailroomError);
+      return res.status(404).json({ error: 'Mailroom not found for failure logging.' });
+    }
+
+    const { data: orgData, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id')
+      .eq('slug', orgSlug)
+      .eq('id', mailroomRecord.organization_id)
+      .single();
+
+    if (orgError || !orgData) {
+      console.error(`Error fetching organization by slug ${orgSlug} or mailroom mismatch for failure log:`, orgError);
+      return res.status(404).json({ error: 'Organization not found or mailroom does not belong to it for failure logging.' });
+    }
+    
+    const mailroomId = mailroomRecord.id;
     
     // Log the failed package to a special table for staff follow-up
     const { error: logError } = await supabaseAdmin
       .from('failed_package_logs')
       .insert({
-        mailroom_id: profileData.mailroom_id,
+        mailroom_id: mailroomId,
         staff_id: userId,
         first_name: failedPackage.First,
         last_name: failedPackage.Last,
         email: failedPackage.Email,
         resident_id: failedPackage.residentId,
         provider: failedPackage.provider,
-        error_details: req.body.error || 'Unknown error during package registration',
+        error_details: failedPackage.error || req.body.error || 'Unknown error during package registration',
         resolved: false
       });
     

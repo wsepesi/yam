@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getMailroomDisplayName, getOrgDisplayName } from '@/lib/userPreferences';
+import { useUserRole, withAuth } from '@/context/AuthContext';
 
 import Layout from '@/components/Layout';
+import { MailroomTabProps } from '@/lib/types/MailroomTabProps';
 import ManageEmailContent from '@/components/mailroomTabs/ManageEmailContent';
 import ManageManagers from '@/components/mailroomTabs/ManageManagers';
 import ManagePackages from '@/components/mailroomTabs/ManagePackages';
@@ -13,8 +15,6 @@ import Pickup from '@/components/mailroomTabs/Pickup';
 import Register from '@/components/mailroomTabs/RegisterPackage'
 import UserTabPageSkeleton from '@/components/UserTabPageSkeleton';
 import { useRouter } from 'next/router';
-import { useUserRole } from '@/context/AuthContext';
-import { withAuth } from '@/components/withAuth';
 
 // Define the possible tab values for each role
 const USER_TABS = ['overview', 'pickup', 'register'] as const;
@@ -25,35 +25,35 @@ const ADMIN_TABS = [] as const; // Keeping admin section in code but empty for n
 const TAB_CONFIG = {
   'overview': {
     title: 'overview',
-    Component: Overview
+    Component: Overview as React.FC<MailroomTabProps>
   },
   'pickup': {
     title: 'pickup',
-    Component: Pickup
+    Component: Pickup as React.FC<MailroomTabProps>
   },
   'register': {
     title: 'register',
-    Component: Register
+    Component: Register as React.FC<MailroomTabProps>
   },
   'manage users': {
     title: 'manage users',
-    Component: ManageUsers
+    Component: ManageUsers as React.FC<MailroomTabProps>
   },
   'manage roster': {
     title: 'manage roster',
-    Component: ManageRoster
+    Component: ManageRoster as React.FC<MailroomTabProps>
   },
   'manage packages': {
     title: 'manage packages',
-    Component: ManagePackages
+    Component: ManagePackages as React.FC<MailroomTabProps>
   },
   'manage managers': {
     title: 'manage managers',
-    Component: ManageManagers
+    Component: ManageManagers as React.FC<MailroomTabProps>
   },
   'manage email content': {
     title: 'manage email content',
-    Component: ManageEmailContent
+    Component: ManageEmailContent as React.FC<MailroomTabProps>
   }
 } as const;
 
@@ -72,6 +72,7 @@ export function UserTabPage() {
   const [orgDisplayName, setOrgDisplayName] = useState<string>('');
   const [mailroomDisplayName, setMailroomDisplayName] = useState<string>('');
   const [isValidating, setIsValidating] = useState(true);
+  const [activeLoadingTab, setActiveLoadingTab] = useState<TabType>('overview');
 
   // Refs to store previously validated slugs
   const prevOrgSlugRef = useRef<string | undefined>(undefined);
@@ -106,6 +107,14 @@ export function UserTabPage() {
     if (!router.isReady) {
       setIsValidating(true);
       return;
+    }
+
+    // Set activeLoadingTab based on URL for loading state
+    if (router.isReady && currentTabValue) {
+      const tabValue = currentTabValue as TabType;
+      if (AVAILABLE_TABS.includes(tabValue)) {
+        setActiveLoadingTab(tabValue);
+      }
     }
 
     if (!orgSlug || !mailroomSlug) {
@@ -207,7 +216,100 @@ export function UserTabPage() {
 
   // Handle loading state while router is hydrating, auth is loading, or org/mailroom are validating
   if (!router.isReady || isLoading || isValidating) {
-    return <Layout title="Package Management" glassy={false}><UserTabPageSkeleton /></Layout>;
+    // Show the sidebar even during loading but only show skeleton for main content
+    return (
+      <Layout title="Package Management" glassy={false}>
+        <div className="flex flex-col md:flex-row flex-1 h-full">
+          <div className="flex flex-col md:flex-row flex-1">
+            {/* Sidebar with Tabs - Always render this immediately */}
+            <div className="w-full md:w-48 bg-[#ffeedd] p-4 pt-20 md:h-full overflow-y-auto">
+              <nav>
+                {USER_TABS.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-xs uppercase text-[#471803] font-bold mb-2">General</h3>
+                    <div className="flex flex-col space-y-1">
+                      {USER_TABS.map((tabName) => (
+                        <button
+                          key={tabName}
+                          disabled
+                          className={`text-xs px-3 py-2 text-left tracking-wide relative ${
+                            activeLoadingTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                          } hover:text-[#471803] transition-colors`}
+                        >
+                          {tabName}
+                          {activeLoadingTab === tabName && (
+                            <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {role === 'manager' || role === 'admin' || role === 'super-admin' ? (
+                  <div className="mb-6">
+                    <h3 className="text-xs uppercase text-[#471803] font-bold mb-2">Management</h3>
+                    <div className="flex flex-col space-y-1">
+                      {MANAGER_TABS.map((tabName) => (
+                        <button
+                          key={tabName}
+                          disabled
+                          className={`text-xs px-3 py-2 text-left tracking-wide relative ${
+                            activeLoadingTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                          } hover:text-[#471803] transition-colors`}
+                        >
+                          {tabName}
+                          {activeLoadingTab === tabName && (
+                            <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {(role === 'admin' || role === 'super-admin') && ADMIN_TABS.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs uppercase text-[#471803] font-bold mb-2">Admin</h3>
+                    <div className="flex flex-col space-y-1">
+                      {ADMIN_TABS.map((tabName) => (
+                        <button
+                          key={tabName}
+                          disabled
+                          className={`text-xs px-3 py-2 text-left tracking-wide relative ${
+                            activeLoadingTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                          } hover:text-[#471803] transition-colors`}
+                        >
+                          {tabName}
+                          {activeLoadingTab === tabName && (
+                            <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </nav>
+            </div>
+
+            {/* Main Content Area - Only show skeleton here */}
+            <div className="flex-1 px-12">
+              <div className="flex justify-between items-center mb-4 pt-6">
+                <h1 className="text-2xl font-medium text-[#471803]">
+                  <div className="h-8 w-64 bg-gray-200 animate-pulse rounded"></div>
+                  <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]"></div>
+                </h1>
+                <h2 className="text-xl font-semibold text-[#471803] italic relative">
+                  {TAB_CONFIG[activeLoadingTab]?.title || 'Loading...'}
+                  <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]"></div>
+                </h2>
+              </div>
+              <UserTabPageSkeleton />
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
   }
 
   const handleTabClick = (newTab: TabType) => {
@@ -324,7 +426,7 @@ export function UserTabPage() {
                 <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]"></div>
               </h2>
             </div>          
-            {TAB_CONFIG[activeTab] && React.createElement(TAB_CONFIG[activeTab].Component)}
+            {TAB_CONFIG[activeTab] && React.createElement(TAB_CONFIG[activeTab].Component, { orgSlug, mailroomSlug })}
           </div>
         </div>
       </div>

@@ -13,27 +13,46 @@ export default async function handler(
   }
   
   try {
-    const packageData = req.body as PackageNoIds;
-    
-    const supabaseAdmin = createAdminClient()
-    const authHeader = req.headers.authorization;
-    const userId = await getUserId(supabaseAdmin, authHeader)
-    
-    // Get the mailroom ID and organization ID for the user
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('mailroom_id, organization_id')
-      .eq('id', userId)
-      .single();
+    const { orgSlug, mailroomSlug, ...packageData } = req.body as PackageNoIds & { orgSlug: string, mailroomSlug: string };
 
-    console.log(profileData, profileError)
-    
-    if (profileError || !profileData?.mailroom_id || !profileData?.organization_id) {
-      return res.status(400).json({ error: 'User not associated with a mailroom and organization' });
+    if (!packageData || !packageData.residentId || !packageData.provider || !orgSlug || !mailroomSlug) {
+      return res.status(400).json({ error: 'Missing required package data, orgSlug, or mailroomSlug' });
     }
     
-    const mailroomId = profileData.mailroom_id;
-    const organizationId = profileData.organization_id;
+    const supabaseAdmin = createAdminClient();
+    const authHeader = req.headers.authorization; // Keep for staff_id logging
+    const userId = await getUserId(supabaseAdmin, authHeader);
+
+    if (!userId) { // Ensure userId is fetched for logging
+        return res.status(401).json({ error: 'Unauthorized or unable to determine staff ID for logging.' });
+    }
+    
+    // Fetch mailroom_id and organization_id based on orgSlug and mailroomSlug
+    const { data: mailroomRecord, error: mailroomError } = await supabaseAdmin
+      .from('mailrooms')
+      .select('id, organization_id, admin_email, mailroom_hours, email_additional_text') // Select fields needed later
+      .eq('slug', mailroomSlug)
+      .single();
+
+    if (mailroomError || !mailroomRecord) {
+      console.error(`Error fetching mailroom by slug ${mailroomSlug}:`, mailroomError);
+      return res.status(404).json({ error: 'Mailroom not found.' });
+    }
+
+    const { data: orgRecord, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id, notification_email, notification_email_password') // Select fields needed later
+      .eq('slug', orgSlug)
+      .eq('id', mailroomRecord.organization_id)
+      .single();
+
+    if (orgError || !orgRecord) {
+      console.error(`Error fetching organization by slug ${orgSlug} or mailroom mismatch:`, orgError);
+      return res.status(404).json({ error: 'Organization not found or mailroom does not belong to it.' });
+    }
+    
+    const mailroomId = mailroomRecord.id;
+    // const organizationId = orgRecord.id; // Though orgRecord.id and mailroomRecord.organization_id should be the same
     
     try {
       // 1. Get the next package ID from the queue
@@ -79,40 +98,40 @@ export default async function handler(
         throw new Error(`Failed to insert package: ${packageError?.message}`);
       }
       
-      // 5. Get email configuration from mailroom and organization
-      const { data: mailroomData, error: mailroomError } = await supabaseAdmin
-        .from('mailrooms')
-        .select('admin_email, mailroom_hours, email_additional_text')
-        .eq('id', mailroomId)
-        .single();
+      // 5. Get email configuration from mailroom and organization (already fetched as mailroomRecord and orgRecord)
+      // const { data: mailroomData, error: mailroomError } = await supabaseAdmin
+      //   .from('mailrooms')
+      //   .select('admin_email, mailroom_hours, email_additional_text')
+      //   .eq('id', mailroomId)
+      //   .single();
       
-      if (mailroomError || !mailroomData) {
-        throw new Error(`Failed to fetch mailroom data: ${mailroomError?.message || 'Essential mailroom data is missing.'}`);
-      }
+      // if (mailroomError || !mailroomData) {
+      //   throw new Error(`Failed to fetch mailroom data: ${mailroomError?.message || 'Essential mailroom data is missing.'}`);
+      // }
       
-      const { data: orgData, error: orgError } = await supabaseAdmin
-        .from('organizations')
-        .select('notification_email, notification_email_password')
-        .eq('id', organizationId)
-        .single();
+      // const { data: orgData, error: orgError } = await supabaseAdmin
+      //   .from('organizations')
+      //   .select('notification_email, notification_email_password')
+      //   .eq('id', organizationId)
+      //   .single();
       
-      if (orgError || !orgData) {
-        throw new Error(`Failed to fetch organization data: ${orgError?.message}`);
-      }
+      // if (orgError || !orgData) {
+      //   throw new Error(`Failed to fetch organization data: ${orgError?.message}`);
+      // }
       
-      if (!mailroomData.admin_email) {
+      if (!mailroomRecord.admin_email) {
         throw new Error('Admin email not configured for the mailroom. Cannot send notification.');
       }
-      const adminEmail = mailroomData.admin_email;
-      const fromEmail = orgData.notification_email;
-      const fromPass = orgData.notification_email_password;
+      const adminEmail = mailroomRecord.admin_email;
+      const fromEmail = orgRecord.notification_email;
+      const fromPass = orgRecord.notification_email_password;
 
-      const additionalText = mailroomData.email_additional_text || '';
+      const additionalText = mailroomRecord.email_additional_text || '';
 
       // Format mailroom hours
       let mailroomHoursString = "Not specified.";
-      if (mailroomData.mailroom_hours && typeof mailroomData.mailroom_hours === 'object') {
-        const hours = mailroomData.mailroom_hours as Record<string, { closed: boolean; periods: Array<{ open: string; close: string }> }>;
+      if (mailroomRecord.mailroom_hours && typeof mailroomRecord.mailroom_hours === 'object') {
+        const hours = mailroomRecord.mailroom_hours as Record<string, { closed: boolean; periods: Array<{ open: string; close: string }> }>;
         const lines: string[] = [];
         Object.entries(hours).forEach(([day, schedule]) => {
           if (schedule.closed) {

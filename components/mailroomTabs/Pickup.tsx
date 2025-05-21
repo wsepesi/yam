@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AcProps } from '@/lib/types';
 import AutocompleteWithDb from '@/components/AutocompleteWithDb';
 import { LogPackage } from '@/pages/api/log-package';
+import { MailroomTabProps } from '@/lib/types/MailroomTabProps';
 import { Package as PackageType } from '@/lib/types';
 import { Resident } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
@@ -23,7 +24,7 @@ const pickupSchema = z.object({
   selectedPackages: z.array(z.string()).min(1, "Please select at least one package")
 });
 
-export default function Pickup() {
+export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const { session } = useAuth();
   const [resident, setResident] = useState<Resident | null>(null);
   const [packages, setPackages] = useState<PackageType[] | null>(null);
@@ -77,7 +78,7 @@ export default function Pickup() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
          },
-        body: JSON.stringify(resident.student_id)
+        body: JSON.stringify({ student_id: resident.student_id, orgSlug, mailroomSlug })
       });
 
       if (!res.ok) throw new Error('Failed to fetch packages');
@@ -144,7 +145,7 @@ export default function Pickup() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`
            },
-          body: JSON.stringify(pkg.packageId)
+          body: JSON.stringify({ packageId: pkg.packageId, orgSlug, mailroomSlug })
         });
 
         if (!removeRes.ok) throw new Error('Failed to remove package');
@@ -156,7 +157,7 @@ export default function Pickup() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`
            },
-          body: JSON.stringify(pkg)
+          body: JSON.stringify({ ...pkg, orgSlug, mailroomSlug })
         });
 
         if (!logRes.ok) throw new Error('Failed to log package');
@@ -187,7 +188,7 @@ export default function Pickup() {
   };
 
   const acProps: AcProps<Resident> = {
-    apiRoute: 'get-residents',
+    apiRoute: orgSlug && mailroomSlug ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}` : 'get-residents',
     acLabel: 'Student ID',
     displayOption: (resident: Resident) => resident.student_id,
     record: resident,

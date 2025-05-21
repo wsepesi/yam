@@ -2,6 +2,7 @@ import { Calendar, Package, Users } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, TooltipProps, XAxis, YAxis } from 'recharts';
 import React, { useEffect, useState } from 'react';
 
+import { MailroomTabProps } from '@/lib/types/MailroomTabProps';
 import { useAuth } from '@/context/AuthContext';
 
 // Interface for individual month data in the chart (matches API)
@@ -57,7 +58,7 @@ const SkeletonChart = () => (
   </div>
 );
 
-export default function Overview() {
+export default function Overview({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const { session } = useAuth();
   const [stats, setStats] = useState<MailroomStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,8 +73,13 @@ export default function Overview() {
           setLoading(false);
           return;
         }
+        if (!orgSlug || !mailroomSlug) {
+          setError('Organization or Mailroom not specified.');
+          setLoading(false);
+          return;
+        }
 
-        const response = await fetch('/api/get-packages-mailroom', {
+        const response = await fetch(`/api/get-packages-mailroom?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -99,7 +105,7 @@ export default function Overview() {
     };
 
     fetchStats();
-  }, [session]);
+  }, [session, orgSlug, mailroomSlug]);
 
   if (loading) {
     return (

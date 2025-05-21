@@ -18,8 +18,10 @@ export default function Layout({ children, title = 'Yam', glassy = true }: Layou
   const { isAuthenticated, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    // router.push('/');
+    
+    console.log('signing out');
     await signOut();
+    router.push('/');
   };
 
   const borderColor = 'border-[#471803]';

@@ -14,29 +14,45 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { packageId, orgSlug, mailroomSlug } = req.body;
+
+  if (!packageId || !orgSlug || !mailroomSlug) {
+    return res.status(400).json({ error: 'packageId, orgSlug, and mailroomSlug are required in the request body.' });
+  }
+
   try {
-    const packageId = req.body as string;
-    
-    if (!packageId) {
-      return res.status(400).json({ error: 'Package ID is required' });
+    const supabaseAdmin = createAdminClient();
+    const authHeader = req.headers.authorization;
+    const userId = await getUserId(supabaseAdmin, authHeader);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized or unable to determine staff ID for logging.' });
     }
 
-    const supabaseAdmin = createAdminClient()
-    const authHeader = req.headers.authorization;
-    const userId = await getUserId(supabaseAdmin, authHeader)
-    
-    // Get the mailroom ID for the user
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('mailroom_id')
-      .eq('id', userId)
+    const { data: mailroomData, error: mailroomError } = await supabaseAdmin
+      .from('mailrooms')
+      .select('id, organization_id')
+      .eq('slug', mailroomSlug)
       .single();
-    
-    if (profileError || !profileData?.mailroom_id) {
-      return res.status(400).json({ error: 'User not associated with a mailroom' });
+
+    if (mailroomError || !mailroomData) {
+      console.error(`Error fetching mailroom by slug ${mailroomSlug}:`, mailroomError);
+      return res.status(404).json({ error: 'Mailroom not found.' });
+    }
+
+    const { data: orgData, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id')
+      .eq('slug', orgSlug)
+      .eq('id', mailroomData.organization_id)
+      .single();
+
+    if (orgError || !orgData) {
+      console.error(`Error fetching organization by slug ${orgSlug} or mailroom mismatch:`, orgError);
+      return res.status(404).json({ error: 'Organization not found or mailroom does not belong to it.' });
     }
     
-    const mailroomId = profileData.mailroom_id;
+    const mailroomId = mailroomData.id;
     
     // Get the package details first to make sure it exists in this mailroom
     const { data: packageData, error: packageError } = await supabaseAdmin

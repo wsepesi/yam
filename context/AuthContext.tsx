@@ -1,5 +1,5 @@
 import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 import Layout from '@/components/Layout';
 import UserTabPageSkeleton from '@/components/UserTabPageSkeleton';
@@ -9,14 +9,17 @@ import { useRouter } from 'next/router';
 // Role type - should match the database
 export type UserRole = 'user' | 'manager' | 'admin' | 'super-admin';
 
+const TIMEOUT_MS = 2000;
+
 // Define the shape of the user profiles in your database
 export interface UserProfile {
   id: string;
   role: UserRole;
   status: 'INVITED' | 'ACTIVE' | 'REMOVED';
-  organization_id: string;
-  mailroom_id: string;
-  // Add other profile fields you may have
+  organization_id: string; // UUID of the organization
+  mailroom_id: string;     // UUID of the mailroom
+  // organization_slug and mailroom_slug are NOT directly on UserProfile
+  // They are fetched separately if needed, e.g. by getUserOrg/getUserMailroom
 }
 
 // Auth context state
@@ -284,16 +287,25 @@ export const withAuth = <P extends object>(
     const { userProfile, isLoading, isAuthenticated } = useAuth();
     const router = useRouter();
     const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+    const [isAccessVerified, setIsAccessVerified] = useState(false); // New state for async access check
+    const [isCheckingAccess, setIsCheckingAccess] = useState(true); // New state to track async check
+    
+    // Add cache for auth validations to prevent unnecessary checks 
+    const verifiedPathsRef = useRef<Set<string>>(new Set());
+
+    const { org: orgSlugFromQuery, mailroom: mailroomSlugFromQuery } = router.query;
+    const currentOrgSlug = Array.isArray(orgSlugFromQuery) ? orgSlugFromQuery[0] : orgSlugFromQuery;
+    const currentMailroomSlug = Array.isArray(mailroomSlugFromQuery) ? mailroomSlugFromQuery[0] : mailroomSlugFromQuery;
 
     useEffect(() => {
       let timerId: NodeJS.Timeout | undefined;
-      if (isLoading) {
+      if (isLoading || isCheckingAccess) { // Consider both loading states
         timerId = setTimeout(() => {
-          if (isLoading) {
-            console.warn('withAuth HOC: Loading state timed out. Forcing redirect to login.');
+          if (isLoading || isCheckingAccess) {
+            console.warn('withAuth HOC: Loading or access check state timed out. Forcing redirect to login.');
             setLoadingTimedOut(true);
           }
-        }, 2000);
+        }, TIMEOUT_MS);
       } else {
         setLoadingTimedOut(false);
       }
@@ -303,38 +315,118 @@ export const withAuth = <P extends object>(
           clearTimeout(timerId);
         }
       };
-    }, [isLoading]);
+    }, [isLoading, isCheckingAccess]);
 
     useEffect(() => {
-      if (loadingTimedOut && isLoading) {
-        router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}&reason=loading_timeout`);
-        return;
-      }
-
-      if (!isLoading && !isAuthenticated) {
-        router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}`);
-        return;
-      }
-
-      if (!isLoading && isAuthenticated && userProfile) {
-        if (
-          requiredRole &&
-          (userProfile.role !== 'admin' && userProfile.role !== 'super-admin') &&
-          !(
-            userProfile.role === requiredRole ||
-            (requiredRole === 'user' && userProfile.role === 'manager')
-          )
-        ) {
-          router.push('/unauthorized');
+      const verifyAccess = async () => {
+        if (loadingTimedOut && (isLoading || isCheckingAccess)) {
+          router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}&reason=loading_timeout`);
+          return;
         }
-      }
-    }, [isLoading, isAuthenticated, userProfile, router, loadingTimedOut]);
 
-    const effectivelyLoading = isLoading || (isAuthenticated && !userProfile);
+        if (!isLoading && !isAuthenticated) {
+          router.push(`/login?callbackUrl=${encodeURIComponent(router.asPath)}`);
+          return;
+        }
+
+        if (!isLoading && isAuthenticated && userProfile) {
+          // Check if we've already verified this path
+          const currentPath = `${currentOrgSlug}/${currentMailroomSlug}`;
+          if (verifiedPathsRef.current.has(currentPath)) {
+            console.log('withAuth: Using cached validation for path', currentPath);
+            setIsAccessVerified(true);
+            setIsCheckingAccess(false);
+            return;
+          }
+
+          setIsCheckingAccess(true); // Start access check
+
+          // Role Check (remains the same)
+          if (
+            requiredRole &&
+            (userProfile.role !== 'admin' && userProfile.role !== 'super-admin') &&
+            !(
+              userProfile.role === requiredRole ||
+              (requiredRole === 'user' && userProfile.role === 'manager')
+            )
+          ) {
+            router.push('/unauthorized?reason=role_mismatch');
+            setIsCheckingAccess(false);
+            return;
+          }
+
+          // Slug-based access check for non-admins
+          if (userProfile.role !== 'admin' && userProfile.role !== 'super-admin') {
+            if (currentOrgSlug && currentMailroomSlug) {
+              // IMPORTANT: Use functions similar to your lib/userPreferences to get actual assigned slugs
+              // These might be direct DB calls or RPCs if userPreferences.ts is only for display defaults.
+              // For this example, I'll simulate fetching them. Replace with your actual logic.
+              let assignedOrgSlug: string | undefined;
+              let assignedMailroomSlug: string | undefined;
+
+              try {
+                // SIMULATING direct Supabase query for actual slugs based on IDs from profile
+                const { data: orgProfileData, error: orgProfileError } = await supabase
+                  .from('organizations').select('slug').eq('id', userProfile.organization_id).single();
+                if (orgProfileError) throw orgProfileError;
+                assignedOrgSlug = orgProfileData?.slug;
+
+                const { data: mailroomProfileData, error: mailroomProfileError } = await supabase
+                  .from('mailrooms').select('slug').eq('id', userProfile.mailroom_id).single();
+                if (mailroomProfileError) throw mailroomProfileError;
+                assignedMailroomSlug = mailroomProfileData?.slug;
+
+              } catch (e) {
+                console.error("withAuth: Error fetching assigned org/mailroom slugs for user", userProfile.id, e);
+                router.push('/unauthorized?reason=profile_data_fetch_error');
+                setIsCheckingAccess(false);
+                return;
+              }
+              
+              console.log('access check 1 (async)', { assignedOrgSlug, assignedMailroomSlug, currentOrgSlug, currentMailroomSlug });
+
+              if (assignedOrgSlug !== currentOrgSlug || assignedMailroomSlug !== currentMailroomSlug) {
+                console.warn(
+                  `withAuth: User ${userProfile.id} (role: ${userProfile.role}) ` +
+                  `attempted to access ${currentOrgSlug}/${currentMailroomSlug} ` +
+                  `but is assigned to ${assignedOrgSlug}/${assignedMailroomSlug}. Redirecting.`
+                );
+                router.push('/unauthorized?reason=mailroom_mismatch');
+                setIsCheckingAccess(false);
+                return;
+              }
+              
+              // Cache successful validation
+              verifiedPathsRef.current.add(currentPath);
+            } else if (currentOrgSlug || currentMailroomSlug) {
+              console.warn(
+                `withAuth: User ${userProfile.id} (role: ${userProfile.role}) ` +
+                `attempted to access a partially formed mailroom path: ${currentOrgSlug}/${currentMailroomSlug}. Redirecting.`
+              );
+              router.push('/unauthorized?reason=incomplete_path');
+              setIsCheckingAccess(false);
+              return;
+            }
+          }
+          setIsAccessVerified(true); // Access verified (either admin or passed slug check)
+          setIsCheckingAccess(false);
+        } else if (!isLoading && !userProfile && isAuthenticated) {
+            // This case means user is authenticated but profile hasn't loaded yet, could be an issue
+            console.warn('withAuth: Authenticated but no userProfile. This might be a loading race condition.');
+            // Decide if to redirect or wait; current logic relies on isLoading to cover this.
+            // If it persists, it might need a specific redirect or error state.
+            setIsCheckingAccess(false); // Not checking if no profile
+        }
+      };
+
+      verifyAccess();
+    }, [isLoading, isAuthenticated, userProfile, router, requiredRole, currentOrgSlug, currentMailroomSlug, loadingTimedOut]);
+
+    const effectivelyLoading = isLoading || isCheckingAccess || (isAuthenticated && !userProfile);
 
     if (effectivelyLoading) {
-      if (loadingTimedOut && isLoading) {
-        return null;
+      if (loadingTimedOut && (isLoading || isCheckingAccess)) {
+        return null; // Redirect handled by useEffect
       }
       return (
         <Layout title="Loading..." glassy={false}>
@@ -343,21 +435,16 @@ export const withAuth = <P extends object>(
       );
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !isAccessVerified) {
+       // If not authenticated, or if access checks failed and resulted in a redirect, 
+       // this return null prevents rendering the component before redirect is complete.
+       // isAccessVerified will be false if checks are pending or failed.
       return null;
     }
 
-    if (
-      requiredRole &&
-      userProfile &&
-      (userProfile.role !== 'admin' && userProfile.role !== 'super-admin') &&
-      !(
-        userProfile.role === requiredRole ||
-        (requiredRole === 'user' && userProfile.role === 'manager')
-      )
-    ) {
-      return null;
-    }
+    // The direct role check and slug check before rendering are less critical now 
+    // as useEffect handles redirection, but can be kept as a final safeguard.
+    // However, the async nature means isAccessVerified is the more reliable gate here.
 
     return <Component {...props} />;
   };

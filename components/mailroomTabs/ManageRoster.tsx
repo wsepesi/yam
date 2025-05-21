@@ -30,6 +30,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MailroomTabProps } from '@/lib/types/MailroomTabProps'; // Import the new props type
 import { Resident } from '@/lib/types'; // Import Resident type
 import { residentColumns } from './resident-columns'; // Import resident columns
 import { useAuth } from '@/context/AuthContext';
@@ -54,7 +55,7 @@ const SkeletonRow = ({ numberOfCells }: { numberOfCells: number }) => (
   </TableRow>
 );
 
-export default function ManageRoster() {
+export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const { session } = useAuth();
   const [residents, setResidents] = useState<Resident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,7 +83,7 @@ export default function ManageRoster() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/get-residents', {
+      const response = await fetch(`/api/get-residents?orgSlug=${encodeURIComponent(orgSlug!)}&mailroomSlug=${encodeURIComponent(mailroomSlug!)}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       const data = await response.json();
@@ -95,7 +96,7 @@ export default function ManageRoster() {
     } finally {
       setIsLoading(false);
     }
-  }, [session]);
+  }, [session, orgSlug, mailroomSlug]);
 
   useEffect(() => {
     loadResidents();
@@ -236,7 +237,7 @@ export default function ManageRoster() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ residents: parsedData }), // Ensure key is 'residents'
+        body: JSON.stringify({ residents: parsedData, orgSlug, mailroomSlug }), // Add slugs to body
       });
 
       const result = await response.json();

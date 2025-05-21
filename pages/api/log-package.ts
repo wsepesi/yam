@@ -2,7 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 
 import { Package } from '@/lib/types';
 import { createAdminClient } from '@/lib/supabase';
-import getUserId from '@/lib/handleSession';
+
+// import getUserId from '@/lib/handleSession'; // Removed as it's unused now
 
 export interface LogPackage extends Package {
   pickedUpAt: string;
@@ -17,27 +18,41 @@ export default async function handler(
   }
 
   try {
-    const packageData = req.body as Package;
+    const { orgSlug, mailroomSlug, ...packageData } = req.body as Package & { orgSlug: string, mailroomSlug: string };
     
-    if (!packageData || !packageData.packageId) {
-      return res.status(400).json({ error: 'Package data is required' });
+    if (!packageData || !packageData.packageId || !orgSlug || !mailroomSlug) {
+      return res.status(400).json({ error: 'Package data, orgSlug, and mailroomSlug are required' });
     }
 
-    const supabaseAdmin = createAdminClient()
-    const authHeader = req.headers.authorization;
-    const userId = await getUserId(supabaseAdmin, authHeader)
-    // Get the mailroom ID for the user
-    const { data: profileData, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('mailroom_id, organization_id')
-      .eq('id', userId)
+    const supabaseAdmin = createAdminClient();
+    // const authHeader = req.headers.authorization; // User ID might be needed if logging who performed the action
+    // const userId = await getUserId(supabaseAdmin, authHeader);
+
+    // Fetch mailroom_id based on orgSlug and mailroomSlug
+    const { data: mailroomRecord, error: mailroomError } = await supabaseAdmin
+      .from('mailrooms')
+      .select('id, organization_id')
+      .eq('slug', mailroomSlug)
       .single();
-    
-    if (profileError || !profileData?.mailroom_id) {
-      return res.status(400).json({ error: 'User not associated with a mailroom' });
+
+    if (mailroomError || !mailroomRecord) {
+      console.error(`Error fetching mailroom by slug ${mailroomSlug}:`, mailroomError);
+      return res.status(404).json({ error: 'Mailroom not found for logging.' });
+    }
+
+    const { data: orgData, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .select('id')
+      .eq('slug', orgSlug)
+      .eq('id', mailroomRecord.organization_id)
+      .single();
+
+    if (orgError || !orgData) {
+      console.error(`Error fetching organization by slug ${orgSlug} or mailroom mismatch for logging:`, orgError);
+      return res.status(404).json({ error: 'Organization not found or mailroom does not belong to it for logging.' });
     }
     
-    const mailroomId = profileData.mailroom_id;
+    const mailroomId = mailroomRecord.id;
     
     // Find the package in the database to get its retrieved timestamp
     const { data: packageRecord, error: packageError } = await supabaseAdmin
