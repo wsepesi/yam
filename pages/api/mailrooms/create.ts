@@ -9,9 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
-  const { name, slug, organizationId } = req.body;
+  const { name, slug, organizationId, adminEmail } = req.body;
 
-  if (!name || !slug || !organizationId) {
+  if (!name || !slug || !organizationId || !adminEmail) {
     return res.status(400).json({ error: 'Missing required fields: name, slug, or organizationId' });
   }
 
@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           organization_id: organizationId as string, // Ensure your DB column name matches
           created_by: userId, // Link the mailroom to the user who created it
           status: 'ACTIVE', // Example: set a default status if applicable
-          admin_email: userProfile.email,
+          admin_email: adminEmail as string,
         },
       ])
       .select() // Select all columns of the newly created row

@@ -175,6 +175,7 @@ export const CreateMailroomDialog: React.FC<CreateMailroomDialogProps> = ({
             name: mailroomName,
             slug: mailroomSlug,
             organizationId: organizationId,
+            adminEmail: adminEmail,
           }),
         });
 
