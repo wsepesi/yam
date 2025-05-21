@@ -9,7 +9,7 @@ import ReportName from '@/components/ReportName';
 import { useAuth } from '@/context/AuthContext';
 import { z } from 'zod';
 
-const carriers = ["Amazon", "USPS", "UPS", "Fedex", "Other"] as const;
+const carriers = ["Amazon", "USPS", "UPS", "Fedex", "Letter", "Other"] as const;
 
 const packageSchema = z.object({
   resident: z.object({
