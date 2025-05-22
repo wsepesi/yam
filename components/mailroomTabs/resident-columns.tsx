@@ -1,10 +1,24 @@
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Trash } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 import { Button } from "@/components/ui/button"
 import { ColumnDef } from "@tanstack/react-table"
 import { Resident } from '@/lib/types'; // Assuming Resident type is defined in types
 
+// Handler type for resident actions
+export type ResidentActionHandlers = {
+  onRemove: (resident: Resident) => void;
+};
+
 // --- Columns for Residents ---
-export const residentColumns: ColumnDef<Resident>[] = [
+export const residentColumns = (
+  actionHandlers?: ResidentActionHandlers
+): ColumnDef<Resident>[] => [
   {
     accessorKey: "first_name",
     header: ({ column }) => {
@@ -58,5 +72,31 @@ export const residentColumns: ColumnDef<Resident>[] = [
     header: "Student ID",
     cell: ({ row }) => <div>{row.getValue("student_id")}</div>,
   },
-  // Add more columns as needed, e.g., created_at, added_by if they are part of the Resident type and useful for display
+  // Add actions column
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const resident = row.original;
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-white border-[#471803]/20 rounded-none">
+            <DropdownMenuItem
+              className="text-red-600 cursor-pointer focus:bg-red-50 focus:text-red-700 rounded-none"
+              onClick={() => actionHandlers?.onRemove(resident)}
+            >
+              <Trash className="mr-2 h-4 w-4" />
+              Remove
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
 ]; 

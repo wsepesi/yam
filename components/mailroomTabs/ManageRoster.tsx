@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'; // Added import for xlsx
 
-import { AlertCircle, ChevronDown, Search, Upload, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Plus, Search, Upload, X } from 'lucide-react';
 import {
   ColumnFiltersState,
   SortingState,
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ResidentActionHandlers, residentColumns } from './resident-columns'; // Import resident columns
 import {
   Table,
   TableBody,
@@ -28,11 +29,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { AddResidentDialog } from './AddResidentDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MailroomTabProps } from '@/lib/types/MailroomTabProps'; // Import the new props type
 import { Resident } from '@/lib/types'; // Import Resident type
-import { residentColumns } from './resident-columns'; // Import resident columns
+import { toast } from "sonner"
 import { useAuth } from '@/context/AuthContext';
 
 // Define a type for the parsed data from the uploaded file
@@ -71,6 +73,13 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
   const [fileError, setFileError] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // Or handle inline
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for add resident dialog
+  const [isAddResidentDialogOpen, setIsAddResidentDialogOpen] = useState(false);
+  
+  // State for remove resident confirmation
+  const [residentToRemove, setResidentToRemove] = useState<Resident | null>(null);
+  const [isRemovingResident, setIsRemovingResident] = useState(false);
 
   const loadResidents = useCallback(async () => {
     if (!session) {
@@ -101,10 +110,17 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
   useEffect(() => {
     loadResidents();
   }, [loadResidents]);
+  
+  // Actions for resident table
+  const residentActions: ResidentActionHandlers = {
+    onRemove: (resident) => {
+      setResidentToRemove(resident);
+    }
+  };
 
   const table = useReactTable({
     data: residents,
-    columns: residentColumns,
+    columns: residentColumns(residentActions),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -252,15 +268,78 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
       setSelectedFile(null);
       setParsedData([]);
       
-      if (typeof window !== "undefined") {
-        alert(result.message + ' Roster uploaded. The list will refresh.');
-      }
+      toast.success("Roster uploaded successfully.", {
+        description: result.message,
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #471803',
+          borderRadius: '0px',
+          color: '#471803',
+        },
+      });
+      
       await loadResidents(); // Refresh the residents list
 
     } catch (uploadError) {
       console.error("Error uploading roster:", uploadError);
       setFileError(uploadError instanceof Error ? uploadError.message : "Failed to upload roster.");
       // Keep modal open if error occurs so user can see the error
+    }
+  };
+  
+  // Handler for adding a new resident
+  const handleAddResidentClick = () => {
+    setIsAddResidentDialogOpen(true);
+  };
+  
+  // Handler for removing a resident
+  const handleRemoveResident = async () => {
+    if (!residentToRemove || !session) return;
+    
+    setIsRemovingResident(true);
+    
+    try {
+      const response = await fetch('/api/remove-resident', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ residentId: residentToRemove.id }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to remove resident');
+      }
+      
+      toast.success("Resident removed successfully.", {
+        description: result.message,
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #471803',
+          borderRadius: '0px',
+          color: '#471803',
+        },
+      });
+      
+      // Refresh the residents list
+      await loadResidents();
+    } catch (err) {
+      console.error('Error removing resident:', err);
+      toast.error("Error removing resident.", {
+        description: err instanceof Error ? err.message : 'Failed to remove resident',
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+    } finally {
+      setIsRemovingResident(false);
+      setResidentToRemove(null);
     }
   };
 
@@ -347,6 +426,59 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
           </div>
         </div>
       )}
+      
+      {/* Remove Resident Confirmation Dialog */}
+      {residentToRemove && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-none shadow-xl w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-[#471803]">Remove Resident</h3>
+              <button onClick={() => setResidentToRemove(null)} className="p-1 hover:bg-gray-200 rounded-none">
+                <X size={20} className="text-[#471803]/70" />
+              </button>
+            </div>
+            <p className="text-sm text-[#471803]/90 mb-4">
+              Are you sure you want to remove {residentToRemove.first_name} {residentToRemove.last_name} ({residentToRemove.student_id}) from the roster?
+            </p>
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setResidentToRemove(null)}
+                className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
+                disabled={isRemovingResident}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleRemoveResident} 
+                disabled={isRemovingResident}
+                className="bg-red-600 text-white hover:bg-red-700 px-3 py-1.5 text-sm h-auto rounded-none disabled:opacity-50"
+              >
+                {isRemovingResident ? 'Removing...' : 'Remove Resident'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Add Resident Dialog */}
+      <AddResidentDialog 
+        isOpen={isAddResidentDialogOpen}
+        onClose={() => setIsAddResidentDialogOpen(false)}
+        onResidentAdded={() => {
+          loadResidents();
+          toast.success("Resident added successfully!", {
+            style: {
+              backgroundColor: '#fffaf5',
+              border: '1px solid #471803',
+              borderRadius: '0px',
+              color: '#471803',
+            },
+          }); 
+        }}
+        orgSlug={orgSlug!}
+        mailroomSlug={mailroomSlug!}
+      />
 
       <div className="flex-1 space-y-4 pr-1"> {/* Adjusted max-h for the new button section */}
         {error && (
@@ -384,7 +516,18 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              {/* Upload Roster Button and input will be inserted here */}
+              
+              {/* Add Resident Button */}
+              <Button 
+                onClick={handleAddResidentClick}
+                variant="outline"
+                className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
+              >
+                <Plus size={16} className="mr-2" />
+                Add Resident
+              </Button>
+              
+              {/* Upload Roster Button */}
               <Button 
                 onClick={handleUploadRosterButtonClick}
                 variant="outline"
@@ -403,7 +546,7 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
             </div>
           </div>
           {isLoading && (
-            <Table><TableBody>{Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} numberOfCells={residentColumns.length} />)}</TableBody></Table>
+            <Table><TableBody>{Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} numberOfCells={5} />)}</TableBody></Table>
           )}
           {!isLoading && !error && residents.length === 0 && <p className="text-[#471803]/70 italic text-sm px-4 py-2">No residents found.</p>}
           {!isLoading && !error && residents.length > 0 && (
@@ -432,7 +575,7 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={residentColumns.length} className="h-20 text-center text-[#471803]/70 text-sm">No results.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="h-20 text-center text-[#471803]/70 text-sm">No results.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

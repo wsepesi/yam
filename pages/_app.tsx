@@ -5,6 +5,7 @@ import type { AppProps } from "next/app";
 import { AuthProvider } from "@/context/AuthContext";
 import { Spectral } from 'next/font/google';
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Toaster } from "@/components/ui/sonner"
 
 const spectral = Spectral({
   weight: ['400', '700'],
@@ -22,6 +23,7 @@ export default function App({ Component, pageProps }: AppProps) {
          <SpeedInsights />
          <Analytics />
       </main>
+      <Toaster />
     </AuthProvider>
   );
 }
