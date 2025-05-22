@@ -36,10 +36,6 @@ const getMonthYearStrings = (numMonths: number): { name: string, isoMonth: strin
   return months;
 };
 
-// interface PackageTimestamp { // Interface for package creation dates
-//     created_at: string;
-// }
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });

@@ -34,12 +34,6 @@ export default async function handler(
 
   try {
     const supabaseAdmin = createAdminClient();
-    // const authHeader = req.headers.authorization; // Authorization might still be needed for access control
-    // const userId = await getUserId(supabaseAdmin, authHeader);
-
-    // if (!userId) {
-    //   return res.status(401).json({ error: 'Unauthorized' });
-    // }
 
     // Fetch mailroom_id based on orgSlug and mailroomSlug
     const { data: mailroomData, error: mailroomError } = await supabaseAdmin
