@@ -1,4 +1,3 @@
-// components/Layout.tsx
 import Head from 'next/head';
 import Link from 'next/link';
 import { ReactNode } from 'react';
@@ -18,8 +17,6 @@ export default function Layout({ children, title = 'Yam', glassy = true }: Layou
   const { isAuthenticated, signOut } = useAuth();
 
   const handleSignOut = async () => {
-    
-    console.log('signing out');
     await signOut();
     router.push('/');
   };
@@ -58,9 +55,6 @@ export default function Layout({ children, title = 'Yam', glassy = true }: Layou
                   login
                 </Link>
               )}
-              {/* <Link href="/about" className="text-sm text-[#471803] px-4 py-2 ml-2 tracking-wide relative hover:border-b hover:border-[#471803] transition-colors">
-                about
-              </Link> */}
               <a href="mailto:sales@useyam.com" className={`text-sm ${textColor} px-4 py-2 ml-2 mr-2 tracking-wide relative hover:border-b ${borderColor} transition-colors`}>
                 contact
               </a>
@@ -86,9 +80,6 @@ export default function Layout({ children, title = 'Yam', glassy = true }: Layou
       </main>
 
       <footer className={`fixed bottom-0 left-0 right-0 h-12 flex items-center justify-center text-sm ${textColor} bg-[#ffeedd]`}>
-        {/* <div className="container mx-auto px-6 text-center">
-          
-        </div> */}
       </footer>
     </div>
   );

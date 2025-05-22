@@ -3,8 +3,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { Resident } from '@/lib/types';
 import { createAdminClient } from '@/lib/supabase';
 
-// import getUserId from '@/lib/handleSession'; // Removed as unused
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<{ records: Resident[] } | { error: string }>
@@ -21,12 +19,6 @@ export default async function handler(
 
   try {
     const supabaseAdmin = createAdminClient();
-    // const authHeader = req.headers.authorization; // May not be needed if access is public or controlled by role check elsewhere
-    // const userId = await getUserId(supabaseAdmin, authHeader);
-
-    // if (!userId) {
-    //   return res.status(401).json({ error: 'User not authenticated' });
-    // }
 
     // Fetch mailroom_id based on orgSlug and mailroomSlug
     const { data: mailroomData, error: mailroomError } = await supabaseAdmin
@@ -77,19 +69,6 @@ export default async function handler(
     if (!residents) {
       return res.status(200).json({ records: [] }); // Return empty array if no residents found
     }
-
-    // Format residents for the frontend (if needed, current type matches DB)
-    // const formattedResidents: Resident[] = residents.map(res => ({
-    //   id: res.id,
-    //   mailroom_id: res.mailroom_id,
-    //   first_name: res.first_name,
-    //   last_name: res.last_name,
-    //   student_id: res.student_id,
-    //   email: res.email,
-    //   created_at: res.created_at,
-    //   updated_at: res.updated_at,
-    //   added_by: res.added_by,
-    // }));
 
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=300');
     return res.status(200).json({ records: residents as Resident[] });

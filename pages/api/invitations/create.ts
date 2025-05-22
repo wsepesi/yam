@@ -1,6 +1,3 @@
-// // pages/api/invitations/create.ts
-// // import { createClient } from '@supabase/supabase-js';
-
 import { NextApiRequest, NextApiResponse } from 'next';
 
 import { createAdminClient } from '@/lib/supabase';
@@ -48,8 +45,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Managers can only send invitations for their own organization' });
     }
 
-    console.log('mailroomId', mailroomId)
-    console.log('organizationId', organizationId)
     // Verify mailroom exists and belongs to specified organization
     const { data: mailroom, error: mailroomError } = await supabaseAdmin
       .from('mailrooms')
@@ -83,17 +78,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (invitationError) {
-      console.error('Error creating invitation:', invitationError);
       return res.status(500).json({ error: 'Failed to create invitation' });
     }
 
     // Generate the invitation URL
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const invitationUrl = `${baseUrl}` //`{baseUrl}/register`;
+    const invitationUrl = `${baseUrl}`;
 
     // Send the invitation email using Supabase's email functions
-    // Note: admin.inviteUserByEmail might require admin rights 
-    // and might not work with the regular client
     const { error: emailError } = await supabaseAdmin.auth.admin?.inviteUserByEmail(email, {
       redirectTo: invitationUrl,
       data: {

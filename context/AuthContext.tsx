@@ -71,7 +71,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch the user's profile data containing role information
   const fetchUserProfile = async (userId: string) => {
     try {
-      console.log('AuthContext: Fetching user profile for ID:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -79,14 +78,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('AuthContext: Error fetching user profile', error);
         return null;
       }
 
-      console.log('AuthContext: User profile fetched successfully', data);
       return data as UserProfile;
     } catch (error) {
-      console.error('AuthContext: Exception fetching user profile', error);
       return null;
     }
   };
@@ -94,15 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to explicitly refresh the user profile
   const refreshUserProfile = async () => {
     if (user?.id) {
-      console.log('AuthContext: Explicitly refreshing user profile for ID:', user.id);
       setIsLoading(true); // Indicate loading during refresh
       const profile = await fetchUserProfile(user.id);
       setUserProfile(profile);
       setIsLoading(false);
-      console.log('AuthContext: User profile refresh complete', { hasProfile: !!profile });
       return profile; // Optionally return the profile
     }
-    console.log('AuthContext: refreshUserProfile called but no user ID available.');
     return null;
   };
 
@@ -145,7 +138,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Instead of auto-fetching, we now expect an explicit call to refreshUserProfile
           // if the profile data needs to be updated in the context after a user update.
           // This helps avoid race conditions and potential deadlocks as per Supabase guidance.
-          console.log('AuthContext: USER_UPDATED event received for user:', currentSession.user.id, '. Profile refresh should be handled explicitly if needed.');
         }
 
         setIsLoading(false);
@@ -165,28 +157,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userProfile?: UserProfile | null;
   }> => {
     try {
-      console.log('AuthContext: Starting sign in process');
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      console.log('AuthContext: Supabase auth response received', { success: !error, hasUser: !!data?.user });
 
       if (error) {
-        console.error('AuthContext: Sign in error from Supabase:', error);
         return { error, success: false, userProfile: null };
       }
 
       // Fetch the profile on successful sign in
       let fetchedProfile: UserProfile | null = null;
       if (data.user) {
-        console.log('AuthContext: Sign in successful, fetching user profile');
         fetchedProfile = await fetchUserProfile(data.user.id);
-        console.log('AuthContext: User profile fetch complete', { hasProfile: !!fetchedProfile });
 
         // Check if the user's status is 'REMOVED'
         if (fetchedProfile && fetchedProfile.status === 'REMOVED') {
-          console.warn('AuthContext: User status is REMOVED. Access denied.', { userId: data.user.id });
           await supabase.auth.signOut(); // Sign the user out
           setSession(null);
           setUser(null);
@@ -198,11 +184,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(fetchedProfile);
       }
 
-      console.log('AuthContext: Sign in process completed successfully');
       // Return the fetched profile along with success status
       return { error: null, success: true, userProfile: fetchedProfile };
     } catch (error) {
-      console.error('AuthContext: Unexpected error during sign in:', error);
       return { error: error as Error, success: false, userProfile: null };
     }
   };
@@ -212,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await supabase.auth.signOut();
       router.push('/login');
     } catch (error) {
-      console.error('Error signing out:', error);
+      // Error signing out
     }
   };
 
@@ -302,7 +286,6 @@ export const withAuth = <P extends object>(
       if (isLoading || isCheckingAccess) { // Consider both loading states
         timerId = setTimeout(() => {
           if (isLoading || isCheckingAccess) {
-            console.warn('withAuth HOC: Loading or access check state timed out. Forcing redirect to login.');
             setLoadingTimedOut(true);
           }
         }, TIMEOUT_MS);
@@ -333,7 +316,6 @@ export const withAuth = <P extends object>(
           // Check if we've already verified this path
           const currentPath = `${currentOrgSlug}/${currentMailroomSlug}`;
           if (verifiedPathsRef.current.has(currentPath)) {
-            console.log('withAuth: Using cached validation for path', currentPath);
             setIsAccessVerified(true);
             setIsCheckingAccess(false);
             return;
@@ -377,20 +359,12 @@ export const withAuth = <P extends object>(
                 assignedMailroomSlug = mailroomProfileData?.slug;
 
               } catch (e) {
-                console.error("withAuth: Error fetching assigned org/mailroom slugs for user", userProfile.id, e);
                 router.push('/unauthorized?reason=profile_data_fetch_error');
                 setIsCheckingAccess(false);
                 return;
               }
               
-              console.log('access check 1 (async)', { assignedOrgSlug, assignedMailroomSlug, currentOrgSlug, currentMailroomSlug });
-
               if (assignedOrgSlug !== currentOrgSlug || assignedMailroomSlug !== currentMailroomSlug) {
-                console.warn(
-                  `withAuth: User ${userProfile.id} (role: ${userProfile.role}) ` +
-                  `attempted to access ${currentOrgSlug}/${currentMailroomSlug} ` +
-                  `but is assigned to ${assignedOrgSlug}/${assignedMailroomSlug}. Redirecting.`
-                );
                 router.push('/unauthorized?reason=mailroom_mismatch');
                 setIsCheckingAccess(false);
                 return;
@@ -399,10 +373,6 @@ export const withAuth = <P extends object>(
               // Cache successful validation
               verifiedPathsRef.current.add(currentPath);
             } else if (currentOrgSlug || currentMailroomSlug) {
-              console.warn(
-                `withAuth: User ${userProfile.id} (role: ${userProfile.role}) ` +
-                `attempted to access a partially formed mailroom path: ${currentOrgSlug}/${currentMailroomSlug}. Redirecting.`
-              );
               router.push('/unauthorized?reason=incomplete_path');
               setIsCheckingAccess(false);
               return;
@@ -412,7 +382,6 @@ export const withAuth = <P extends object>(
           setIsCheckingAccess(false);
         } else if (!isLoading && !userProfile && isAuthenticated) {
             // This case means user is authenticated but profile hasn't loaded yet, could be an issue
-            console.warn('withAuth: Authenticated but no userProfile. This might be a loading race condition.');
             // Decide if to redirect or wait; current logic relies on isLoading to cover this.
             // If it persists, it might need a specific redirect or error state.
             setIsCheckingAccess(false); // Not checking if no profile

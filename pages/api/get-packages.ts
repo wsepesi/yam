@@ -3,8 +3,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { Package } from '@/lib/types';
 import { createAdminClient } from '@/lib/supabase';
 
-// import getUserId from '@/lib/handleSession'; // Removed as it's unused now
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<{ records: Package[] } | { error: string }>
@@ -21,8 +19,6 @@ export default async function handler(
 
   try {
     const supabaseAdmin = createAdminClient();
-    // const authHeader = req.headers.authorization; // Potentially needed for role checks
-    // const userId = await getUserId(supabaseAdmin, authHeader);
 
     // Fetch mailroom_id based on orgSlug and mailroomSlug
     const { data: mailroomData, error: mailroomError } = await supabaseAdmin

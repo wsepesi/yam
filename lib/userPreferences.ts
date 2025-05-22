@@ -4,28 +4,22 @@ import { UserProfile } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 
-// Constants for default preferences
 export const DEFAULT_ORG = 'default';
 export const DEFAULT_MAILROOM = 'default';
 
-// Function to get user's org from their profile or use default
 export const getUserOrg = async (userProfile: UserProfile | null): Promise<string> => {
-  console.log('getUserOrg: userProfile:', userProfile);
   if (userProfile?.organization_id) {
     try {
-      // Query the database using an RPC call to get the organization slug
       const { data, error } = await supabase.rpc('get_organization_slug_by_id', {
         org_id_param: userProfile.organization_id,
       });
 
-      console.log('getUserOrg: RPC response:', { data, error });
-
-      if (error || !data) { // RPC returns data directly, not an object like { slug: ... }
+      if (error || !data) {
         console.error('Error fetching organization slug via RPC:', error);
         return DEFAULT_ORG;
       }
       
-      return data; // data here is the slug string
+      return data;
     } catch (error) {
       console.error('Exception fetching organization slug via RPC:', error);
       return DEFAULT_ORG;
@@ -34,21 +28,19 @@ export const getUserOrg = async (userProfile: UserProfile | null): Promise<strin
   return DEFAULT_ORG;
 };
 
-// Function to get user's mailroom from their profile or use default
 export const getUserMailroom = async (userProfile: UserProfile | null): Promise<string> => {
   if (userProfile?.mailroom_id) {
     try {
-      // Query the database using an RPC call to get the mailroom slug
       const { data, error } = await supabase.rpc('get_mailroom_slug_by_id', {
         mailroom_id_param: userProfile.mailroom_id,
       });
       
-      if (error || !data) { // RPC returns data directly
+      if (error || !data) {
         console.error('Error fetching mailroom slug via RPC:', error);
         return DEFAULT_MAILROOM;
       }
       
-      return data; // data here is the slug string
+      return data;
     } catch (error) {
       console.error('Exception fetching mailroom slug via RPC:', error);
       return DEFAULT_MAILROOM;
@@ -57,7 +49,6 @@ export const getUserMailroom = async (userProfile: UserProfile | null): Promise<
   return DEFAULT_MAILROOM;
 };
 
-// Function to get the redirect path for a user
 export const getUserRedirectPath = async (userProfile: UserProfile | null = null): Promise<string> => {
   const org = await getUserOrg(userProfile);
   const mailroom = await getUserMailroom(userProfile);
@@ -67,7 +58,6 @@ export const getUserRedirectPath = async (userProfile: UserProfile | null = null
   return `/${org}/${mailroom}`;
 };
 
-// Custom React hook to get the redirect path
 export const useRedirectPath = (): { path: string, isLoading: boolean } => {
   const { userProfile } = useAuth();
   const [path, setPath] = useState<string>(`/${DEFAULT_ORG}/${DEFAULT_MAILROOM}`);
@@ -81,7 +71,6 @@ export const useRedirectPath = (): { path: string, isLoading: boolean } => {
         setPath(redirectPath);
       } catch (error) {
         console.error('Error fetching redirect path:', error);
-        // Fall back to default path construction
         const defaultOrg = await getUserOrg(userProfile).catch(() => DEFAULT_ORG);
         setPath(`/${defaultOrg}/${DEFAULT_MAILROOM}`);
       } finally {
@@ -95,9 +84,7 @@ export const useRedirectPath = (): { path: string, isLoading: boolean } => {
   return { path, isLoading };
 };
 
-// For persistent caching across page refreshes
 export const getMailroomDisplayName = async (mailroomSlug: string): Promise<string | null> => {
-  // Check localStorage first
   const cacheKey = `mailroom-name-${mailroomSlug}`;
   const cachedValue = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
   
@@ -106,18 +93,16 @@ export const getMailroomDisplayName = async (mailroomSlug: string): Promise<stri
   }
 
   try {
-    // Query the database using RPC to get the mailroom name from the slug
     const { data, error } = await supabase.rpc('get_mailroom_name_by_slug', {
       mailroom_slug_param: mailroomSlug.toLowerCase(),
     });
     
-    if (error || !data) { // data is the name string directly
+    if (error || !data) {
       console.error('Error fetching mailroom name via RPC:', error, data);
       return null;
     }
     
-    const displayName = data.toUpperCase(); // Assuming 'data' is the name string
-    // Store in localStorage for persistence
+    const displayName = data.toUpperCase();
     if (typeof window !== 'undefined') {
       localStorage.setItem(cacheKey, displayName);
     }
@@ -130,41 +115,20 @@ export const getMailroomDisplayName = async (mailroomSlug: string): Promise<stri
 
 export const getOrgDisplayName = async (orgSlug: string): Promise<string | null> => {
   try {
-    // Query the database using RPC to get the organization name from the slug
     const { data, error } = await supabase.rpc('get_organization_name_by_slug', {
       org_slug_param: orgSlug.toLowerCase(),
     });
     
-    if (error || !data) { // data is the name string directly
+    if (error || !data) {
       console.error('Error fetching organization name via RPC:', error);
       return null;
     }
     
-    return data.toUpperCase(); // Assuming 'data' is the name string
+    return data.toUpperCase();
   } catch (error) {
     console.error('Exception fetching organization name via RPC:', error);
     return null;
   }
 };
 
-// // Sync versions of the display functions for cases where async cannot be used
-// export const getMailroomDisplayNameSync = (mailroomSlug: string): string => { // TODO: resolve this
-
-//   switch (mailroomSlug.toLowerCase()) {
-//     case 'demo':
-//       return 'Demo Mailroom';
-//     case 'cobeen':
-//         return 'Cobeen Hall'
-//     default:
-//       return 'Unknown Mailroom';
-//   }
-// };
-
-// export const getOrgDisplayNameSync = (orgSlug: string): string => {
-//   switch (orgSlug.toLowerCase()) {
-//     case 'marquette':
-//       return 'MARQUETTE UNIVERSITY';
-//     default:
-//       return 'Unknown Organization';
-//   }
-// }; 
+ 

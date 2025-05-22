@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// import { supabase } from '@/lib/supabaseClient'; // We will use createAdminClient
 import { createAdminClient } from '@/lib/supabase'; // Assuming this is your admin client setup
 import getUserId from '@/lib/handleSession'; // Assuming this is your session handler
 

@@ -61,12 +61,10 @@ export default function ManagePackages() {
   const [currentSorting, setCurrentSorting] = useState<SortingState>([]);
   const [currentColumnFilters, setCurrentColumnFilters] = useState<ColumnFiltersState>([]);
   const [currentColumnVisibility, setCurrentColumnVisibility] = useState<VisibilityState>({});
-  // const [currentRowSelection, setCurrentRowSelection] = useState({});
 
   const [retrievedSorting, setRetrievedSorting] = useState<SortingState>([]);
   const [retrievedColumnFilters, setRetrievedColumnFilters] = useState<ColumnFiltersState>([]);
   const [retrievedColumnVisibility, setRetrievedColumnVisibility] = useState<VisibilityState>({});
-  // const [retrievedRowSelection, setRetrievedRowSelection] = useState({});
 
   useEffect(() => {
     const fetchMailroomDetails = async () => {
@@ -141,10 +139,6 @@ export default function ManagePackages() {
     }
   };
 
-  // const handleDownloadXLSX = (type: 'current' | 'retrieved') => {
-  //   console.log(`Download ${type} packages as XLSX (not implemented)`);
-  // };
-
   const currentTable = useReactTable({
     data: currentPackages,
     columns: currentPackagesColumns,
@@ -155,12 +149,10 @@ export default function ManagePackages() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setCurrentColumnVisibility,
-    // onRowSelectionChange: setCurrentRowSelection,
     state: {
       sorting: currentSorting,
       columnFilters: currentColumnFilters,
       columnVisibility: currentColumnVisibility,
-      // rowSelection: currentRowSelection,
     },
   });
 
@@ -174,14 +166,12 @@ export default function ManagePackages() {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setRetrievedColumnVisibility,
-    // onRowSelectionChange: setRetrievedRowSelection,
     manualPagination: true, 
     pageCount: Math.ceil(totalRetrievedPackages / 50), 
     state: {
       sorting: retrievedSorting,
       columnFilters: retrievedColumnFilters,
       columnVisibility: retrievedColumnVisibility,
-      // rowSelection: retrievedRowSelection,
     },
   });
 
@@ -224,9 +214,6 @@ export default function ManagePackages() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              {/* <Button variant="outline" onClick={() => handleDownloadXLSX('current')} className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-1 text-xs h-auto rounded-none">
-                <Download size={14} className="mr-1" />XLSX
-              </Button> */}
             </div>
           </div>
           {isLoadingCurrent && (
@@ -250,7 +237,7 @@ export default function ManagePackages() {
                 <TableBody className="bg-white divide-y divide-[#471803]/10">
                   {currentTable.getRowModel().rows?.length ? (
                     currentTable.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} /* data-state={row.getIsSelected() && "selected"} */ className="hover:bg-[#471803]/5">
+                      <TableRow key={row.id} className="hover:bg-[#471803]/5">
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id} className="text-xs text-[#471803] py-2 px-2">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -266,10 +253,7 @@ export default function ManagePackages() {
             </div>
           )}
            <div className="flex items-center justify-end space-x-1 py-2 px-4">
-            <div className="flex-1 text-xs text-[#471803]/70">
-              {/* {currentTable.getFilteredSelectedRowModel().rows.length} of{" "}
-              {currentTable.getFilteredRowModel().rows.length} row(s) selected. */}
-            </div>
+            <div className="flex-1 text-xs text-[#471803]/70"></div>
             {currentTable.getCanPreviousPage() && (
               <Button variant="outline" size="sm" onClick={() => currentTable.previousPage()} className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-0.5 text-xs h-auto rounded-none">Previous</Button>
             )}
@@ -308,9 +292,6 @@ export default function ManagePackages() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              {/* <Button variant="outline" onClick={() => handleDownloadXLSX('retrieved')} className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-1 text-xs h-auto rounded-none">
-                <Download size={14} className="mr-1" />XLSX
-              </Button> */}
             </div>
           </div>
           {(isLoadingRetrieved && retrievedPackages.length === 0) && (
@@ -334,7 +315,7 @@ export default function ManagePackages() {
                 <TableBody className="bg-white divide-y divide-[#471803]/10">
                   {retrievedTable.getRowModel().rows?.length ? (
                     retrievedTable.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} /* data-state={row.getIsSelected() && "selected"} */ className="hover:bg-[#471803]/5">
+                      <TableRow key={row.id} className="hover:bg-[#471803]/5">
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id} className="text-xs text-[#471803] py-2 px-2">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -353,10 +334,7 @@ export default function ManagePackages() {
             </div>
           )}
           <div className="flex items-center justify-between py-2 px-4">
-              <div className="flex-1 text-xs text-[#471803]/70">
-                  {/* {retrievedTable.getFilteredSelectedRowModel().rows.length} of{" "}
-                  {retrievedPackages.length} row(s) selected (showing {retrievedPackages.length} of {totalRetrievedPackages}). */}
-              </div>
+              <div className="flex-1 text-xs text-[#471803]/70"></div>
               {retrievedPackages.length < totalRetrievedPackages && !isLoadingRetrieved && (
                   <Button
                       variant="outline"

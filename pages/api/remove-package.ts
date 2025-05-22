@@ -2,10 +2,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 
 import { createAdminClient } from '@/lib/supabase';
 import getUserId from '@/lib/handleSession';
-
-// import { Package } from '@/lib/types';
-
-// In a real application, this would be a database operation
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<boolean | { error: string }>

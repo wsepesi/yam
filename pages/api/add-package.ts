@@ -52,10 +52,8 @@ export default async function handler(
     }
     
     const mailroomId = mailroomRecord.id;
-    // const organizationId = orgRecord.id; // Though orgRecord.id and mailroomRecord.organization_id should be the same
     
     try {
-      // 1. Get the next package ID from the queue
       const { data: packageNumber, error: queueError } = await supabaseAdmin.rpc(
         'get_next_package_number',
         { p_mailroom_id: mailroomId }
@@ -65,7 +63,6 @@ export default async function handler(
         throw new Error(`Failed to get package number: ${queueError?.message || 'No package numbers available'}`);
       }
       
-      // 2. Find the resident record - don't create if it doesn't exist
       const { data: existingResident } = await supabaseAdmin
         .from('residents')
         .select('id, first_name, last_name, email, student_id')
@@ -80,7 +77,6 @@ export default async function handler(
       
       const residentId = existingResident.id;
       
-      // 3. Insert the package
       const { data: insertedPackage, error: packageError } = await supabaseAdmin
         .from('packages')
         .insert({
@@ -98,27 +94,6 @@ export default async function handler(
         throw new Error(`Failed to insert package: ${packageError?.message}`);
       }
       
-      // 5. Get email configuration from mailroom and organization (already fetched as mailroomRecord and orgRecord)
-      // const { data: mailroomData, error: mailroomError } = await supabaseAdmin
-      //   .from('mailrooms')
-      //   .select('admin_email, mailroom_hours, email_additional_text')
-      //   .eq('id', mailroomId)
-      //   .single();
-      
-      // if (mailroomError || !mailroomData) {
-      //   throw new Error(`Failed to fetch mailroom data: ${mailroomError?.message || 'Essential mailroom data is missing.'}`);
-      // }
-      
-      // const { data: orgData, error: orgError } = await supabaseAdmin
-      //   .from('organizations')
-      //   .select('notification_email, notification_email_password')
-      //   .eq('id', organizationId)
-      //   .single();
-      
-      // if (orgError || !orgData) {
-      //   throw new Error(`Failed to fetch organization data: ${orgError?.message}`);
-      // }
-      
       if (!mailroomRecord.admin_email) {
         throw new Error('Admin email not configured for the mailroom. Cannot send notification.');
       }
@@ -129,7 +104,7 @@ export default async function handler(
       const additionalText = mailroomRecord.email_additional_text || '';
 
       // Format mailroom hours
-      let mailroomHoursString = "Not specified.";
+      let mailroomHoursString = "Not specified."; // TODO: Consider making this a default in DB or a shared constant
       if (mailroomRecord.mailroom_hours && typeof mailroomRecord.mailroom_hours === 'object') {
         const hours = mailroomRecord.mailroom_hours as Record<string, { closed: boolean; periods: Array<{ open: string; close: string }> }>;
         const lines: string[] = [];
@@ -148,7 +123,6 @@ export default async function handler(
         }
       }
       
-      // 6. Trigger email notification in the background
       const emailPayload = {
         recipientEmail: existingResident.email,
         recipientFirstName: existingResident.first_name,
@@ -180,7 +154,6 @@ export default async function handler(
         console.error(`Network or other error triggering send-notification-email for package ${insertedPackage.package_id}:`, error);
       });
       
-      // 7. Return the created package data
       const responsePackage: Package = {
         First: existingResident.first_name,
         Last: existingResident.last_name,
