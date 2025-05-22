@@ -80,6 +80,9 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
   // State for remove resident confirmation
   const [residentToRemove, setResidentToRemove] = useState<Resident | null>(null);
   const [isRemovingResident, setIsRemovingResident] = useState(false);
+  
+  // State for upload warning modal
+  const [isUploadWarningModalOpen, setIsUploadWarningModalOpen] = useState(false);
 
   const loadResidents = useCallback(async () => {
     if (!session) {
@@ -141,8 +144,13 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
   });
 
   const handleUploadRosterButtonClick = () => {
+    setIsUploadWarningModalOpen(true);
+  };
+  
+  const handleConfirmUploadWarning = () => {
+    setIsUploadWarningModalOpen(false);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Reset file input
+      fileInputRef.current.value = ''; 
       fileInputRef.current.click();
     }
   };
@@ -455,6 +463,67 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                 className="bg-red-600 text-white hover:bg-red-700 px-3 py-1.5 text-sm h-auto rounded-none disabled:opacity-50"
               >
                 {isRemovingResident ? 'Removing...' : 'Remove Resident'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Upload Warning Modal */}
+      {isUploadWarningModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-none shadow-xl w-full max-w-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-[#471803]">Upload Roster - Important Notice</h3>
+              <button onClick={() => setIsUploadWarningModalOpen(false)} className="p-1 hover:bg-gray-200 rounded-none">
+                <X size={20} className="text-[#471803]/70" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              {/* Warning about replacing residents */}
+              <div className="flex items-start space-x-3 p-3 bg-yellow-50 border border-yellow-200 rounded-none">
+                <AlertCircle size={20} className="text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-medium text-yellow-800 mb-1">Replace All Residents</h4>
+                  <p className="text-sm text-yellow-700">
+                    Uploading a new roster will replace <strong>all</strong> of the old residents. If you want to keep existing residents, make sure they are present in the new roster, or upload new residents individually using the &quot;Add Resident&quot; button.
+                  </p>
+                </div>
+              </div>
+              
+              {/* File format requirements */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-[#471803]">Required File Format</h4>
+                <div className="text-sm text-[#471803]/80 space-y-2">
+                  <p><strong>File types:</strong> CSV (.csv) or Excel (.xlsx)</p>
+                  <p><strong>Required columns (first 4 columns):</strong></p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li><code className="bg-gray-100 px-1 py-0.5 rounded text-xs">first_name</code> - Resident&apos;s first name</li>
+                    <li><code className="bg-gray-100 px-1 py-0.5 rounded text-xs">last_name</code> - Resident&apos;s last name</li>
+                    <li><code className="bg-gray-100 px-1 py-0.5 rounded text-xs">resident_id</code> - Unique resident/student ID</li>
+                    <li><code className="bg-gray-100 px-1 py-0.5 rounded text-xs">email</code> - Resident&apos;s email address</li>
+                  </ul>
+                  <p className="text-xs text-[#471803]/60 mt-2">
+                    <strong>Note:</strong> Ensure resident IDs are formatted as text to preserve leading zeros and maintain consistent length.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsUploadWarningModalOpen(false)}
+                className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmUploadWarning}
+                className="bg-[#471803] text-white hover:bg-[#5a2e1a] px-3 py-1.5 text-sm h-auto rounded-none"
+              >
+                I Understand, Continue
               </Button>
             </div>
           </div>
