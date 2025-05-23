@@ -66,6 +66,7 @@ export default async function handler(
       const { data: existingResident } = await supabaseAdmin
         .from('residents')
         .select('id, first_name, last_name, email, student_id')
+        .eq('status', 'ACTIVE')
         .eq('student_id', packageData.residentId)
         .eq('mailroom_id', mailroomId)
         .single();
@@ -159,7 +160,7 @@ export default async function handler(
         Last: existingResident.last_name,
         Email: existingResident.email,
         provider: insertedPackage.provider,
-        residentId: existingResident.student_id,
+        residentId: existingResident.id,
         packageId: insertedPackage.package_id.toString(),
         status: insertedPackage.status.toLowerCase() as 'pending',
         createdAt: insertedPackage.created_at,

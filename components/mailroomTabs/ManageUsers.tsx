@@ -333,7 +333,7 @@ const ManageUsers: React.FC = () => {
       {/* Tables Container */}
       <div className="flex gap-2 w-full">
         {/* Pending Invitations */}
-        <div className="p-6 bg-white border border-[#471803]/20 w-1/2">
+        <div className="p-6 bg-white border border-[#471803]/20 w-2/5">
           <h3 className="text-lg font-medium text-[#471803] mb-4">Invitations</h3>
           
           <div className="h-[30vh] overflow-y-auto">
@@ -388,7 +388,7 @@ const ManageUsers: React.FC = () => {
         </div>
         
         {/* Current Users */}
-        <div className="p-6 bg-white border border-[#471803]/20 w-1/2">
+        <div className="p-6 bg-white border border-[#471803]/20 w-3/5">
           <h3 className="text-lg font-medium text-[#471803] mb-4">Current Users</h3>
           
           <div className="h-[30vh] overflow-y-auto">

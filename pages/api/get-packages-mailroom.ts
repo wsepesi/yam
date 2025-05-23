@@ -75,7 +75,8 @@ export default async function handler(
       supabaseAdmin
         .from('residents')
         .select('*', { count: 'exact', head: true })
-        .eq('mailroom_id', mailroomId),
+        .eq('mailroom_id', mailroomId)
+        .eq('status', 'ACTIVE'),
       supabaseAdmin
         .from('packages')
         .select('*', { count: 'exact', head: true })

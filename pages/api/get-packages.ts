@@ -50,6 +50,7 @@ export default async function handler(
     const { data: resident, error: residentError } = await supabaseAdmin
       .from('residents')
       .select('id, first_name, last_name, email')
+      .eq('status', 'ACTIVE')
       .eq('student_id', studentId)
       .eq('mailroom_id', mailroomId)
       .single();

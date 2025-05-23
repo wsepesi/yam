@@ -215,6 +215,8 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
               <Package size={16} className="text-[#471803] mt-0.5 shrink-0" />
               <span className="flex-1 text-sm text-[#471803]">
                 #{alert.packageId} - {alert.Last}, {alert.First}
+                <br />
+                <span className="text-xs italic">Make sure to write this on the package</span>
               </span>
               <button
                 onClick={() => dismissAlert(alert.id)}
