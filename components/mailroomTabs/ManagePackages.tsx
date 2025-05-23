@@ -1,4 +1,6 @@
-import { AlertCircle, ChevronDown, Search, X } from 'lucide-react';
+import * as XLSX from 'xlsx';
+
+import { AlertCircle, ChevronDown, Download, Search, X } from 'lucide-react';
 import {
   ColumnFiltersState,
   SortingState,
@@ -29,6 +31,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from "sonner";
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/router';
 
@@ -175,6 +178,129 @@ export default function ManagePackages() {
     },
   });
 
+  // Handler for exporting current packages to CSV
+  const handleExportCurrentPackages = () => {
+    if (currentPackages.length === 0) {
+      toast.error("No current packages to export.", {
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+      return;
+    }
+
+    try {
+      // Prepare data for export
+      const exportData = currentPackages.map(pkg => ({
+        'Package ID': pkg.packageId || '',
+        'Resident Name': pkg.residentName || '',
+        'Resident Email': pkg.residentEmail || '',
+        'Resident ID': pkg.residentStudentId || '',
+        'Provider': pkg.provider || '',
+        'Created At': pkg.createdAt ? new Date(pkg.createdAt).toLocaleDateString() : '',
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Add the worksheet to the workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Current Packages');
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `current_packages_${org}_${mailroom}_${date}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(wb, filename);
+
+      toast.success("Current packages exported successfully.", {
+        description: `${currentPackages.length} packages exported to ${filename}`,
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #471803',
+          borderRadius: '0px',
+          color: '#471803',
+        },
+      });
+    } catch (error) {
+      console.error('Error exporting current packages:', error);
+      toast.error("Failed to export current packages.", {
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+    }
+  };
+
+  // Handler for exporting retrieved packages to CSV
+  const handleExportRetrievedPackages = () => {
+    if (retrievedPackages.length === 0) {
+      toast.error("No retrieved packages to export.", {
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+      return;
+    }
+
+    try {
+      // Prepare data for export
+      const exportData = retrievedPackages.map(pkg => ({
+        'Package ID': pkg.packageId || '',
+        'Resident Name': pkg.residentName || '',
+        'Resident Email': pkg.residentEmail || '',
+        'Resident ID': pkg.residentStudentId || '',
+        'Provider': pkg.provider || '',
+        'Created At': pkg.createdAt ? new Date(pkg.createdAt).toLocaleDateString() : '',
+        'Retrieved Timestamp': pkg.retrievedTimestamp ? new Date(pkg.retrievedTimestamp).toLocaleDateString() : '',
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Add the worksheet to the workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Retrieved Packages');
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `retrieved_packages_${org}_${mailroom}_${date}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(wb, filename);
+
+      toast.success("Retrieved packages exported successfully.", {
+        description: `${retrievedPackages.length} packages exported to ${filename}`,
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #471803',
+          borderRadius: '0px',
+          color: '#471803',
+        },
+      });
+    } catch (error) {
+      console.error('Error exporting retrieved packages:', error);
+      toast.error("Failed to export retrieved packages.", {
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col">
       <h2 className="text-xl font-medium text-[#471803] mb-4">Manage Packages</h2>
@@ -214,6 +340,16 @@ export default function ManagePackages() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              
+              {/* Export Current Packages Button */}
+              <Button 
+                onClick={handleExportCurrentPackages}
+                variant="outline"
+                className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-1 text-xs h-auto rounded-none"
+              >
+                <Download size={14} className="mr-1" />
+                Export
+              </Button>
             </div>
           </div>
           {isLoadingCurrent && (
@@ -292,6 +428,16 @@ export default function ManagePackages() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              
+              {/* Export Retrieved Packages Button */}
+              <Button 
+                onClick={handleExportRetrievedPackages}
+                variant="outline"
+                className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-1 text-xs h-auto rounded-none"
+              >
+                <Download size={14} className="mr-1" />
+                Export
+              </Button>
             </div>
           </div>
           {(isLoadingRetrieved && retrievedPackages.length === 0) && (

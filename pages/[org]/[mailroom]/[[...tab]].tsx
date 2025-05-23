@@ -8,6 +8,7 @@ import ManageEmailContent from '@/components/mailroomTabs/ManageEmailContent';
 import ManageManagers from '@/components/mailroomTabs/ManageManagers';
 import ManagePackages from '@/components/mailroomTabs/ManagePackages';
 import ManageRoster from '@/components/mailroomTabs/ManageRoster';
+import ManageSettings from '@/components/mailroomTabs/ManageSettings';
 import ManageUsers from '@/components/mailroomTabs/ManageUsers';
 // Import all tab components
 import Overview from '@/components/mailroomTabs/Overview';
@@ -18,7 +19,7 @@ import { useRouter } from 'next/router';
 
 // Define the possible tab values for each role
 const USER_TABS = ['overview', 'pickup', 'register'] as const;
-const MANAGER_TABS = ['manage users', 'manage roster', 'manage packages', 'manage managers', 'manage email content'] as const;
+const MANAGER_TABS = ['manage users', 'manage roster', 'manage packages', 'manage managers', 'manage email content', 'manage settings'] as const;
 const ADMIN_TABS = [] as const; // Keeping admin section in code but empty for now
 
 // Tab configuration mapping
@@ -54,6 +55,10 @@ const TAB_CONFIG = {
   'manage email content': {
     title: 'manage email content',
     Component: ManageEmailContent as React.FC<MailroomTabProps>
+  },
+  'manage settings': {
+    title: 'manage settings',
+    Component: ManageSettings as React.FC<MailroomTabProps>
   }
 } as const;
 

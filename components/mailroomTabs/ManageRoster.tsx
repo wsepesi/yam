@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'; // Added import for xlsx
 
-import { AlertCircle, ChevronDown, Plus, Search, Upload, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, Download, Plus, Search, Upload, X } from 'lucide-react';
 import {
   ColumnFiltersState,
   SortingState,
@@ -449,6 +449,66 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
     }
   };
 
+  // Handler for exporting residents to CSV
+  const handleExportResidents = () => {
+    if (residents.length === 0) {
+      toast.error("No residents to export.", {
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+      return;
+    }
+
+    try {
+      // Prepare data for export
+      const exportData = residents.map(resident => ({
+        'First Name': resident.first_name || '',
+        'Last Name': resident.last_name || '',
+        'Resident ID': resident.student_id || '',
+        'Email': resident.email || '',
+        'Created': resident.created_at ? new Date(resident.created_at).toLocaleDateString() : '',
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Add the worksheet to the workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Residents');
+
+      // Generate filename with current date
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `residents_${orgSlug}_${mailroomSlug}_${date}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(wb, filename);
+
+      toast.success("Residents exported successfully.", {
+        description: `${residents.length} residents exported to ${filename}`,
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #471803',
+          borderRadius: '0px',
+          color: '#471803',
+        },
+      });
+    } catch (error) {
+      console.error('Error exporting residents:', error);
+      toast.error("Failed to export residents.", {
+        style: {
+          backgroundColor: '#fffaf5',
+          border: '1px solid #DC2626',
+          borderRadius: '0px',
+          color: '#DC2626',
+        },
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col">
       <h2 className="text-xl font-medium text-[#471803] mb-2">Manage Roster</h2>
@@ -720,6 +780,17 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                 <Upload size={16} className="mr-2" />
                 Upload Roster
               </Button>
+              
+              {/* Export Residents Button */}
+              <Button 
+                onClick={handleExportResidents}
+                variant="outline"
+                className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
+              >
+                <Download size={16} className="mr-2" />
+                Export
+              </Button>
+
               <input 
                   type="file" 
                   ref={fileInputRef} 

@@ -34,6 +34,40 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [pickupOption, setPickupOption] = useState<'resident_id' | 'resident_name'>('resident_id');
+
+  // Fetch pickup settings when component mounts (non-blocking)
+  useEffect(() => {
+    const fetchPickupSettings = async () => {
+      if (!orgSlug || !mailroomSlug || !session) return;
+      
+      try {
+        // First get mailroom ID
+        const mailroomDetailsRes = await fetch(`/api/mailrooms/details?orgSlug=${orgSlug}&mailroomSlug=${mailroomSlug}`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        const mailroomDetailsData = await mailroomDetailsRes.json();
+        
+        if (mailroomDetailsRes.ok && mailroomDetailsData.mailroomId) {
+          // Then get settings
+          const settingsRes = await fetch(`/api/mailroom/get-settings?mailroomId=${mailroomDetailsData.mailroomId}`, {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+          
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json();
+            setPickupOption(settingsData.pickup_option || 'resident_id');
+          }
+          // If settings fetch fails, keep default 'resident_id'
+        }
+      } catch (err) {
+        console.error('Error fetching pickup settings:', err);
+        // Keep default 'resident_id' on error
+      }
+    };
+
+    fetchPickupSettings();
+  }, [orgSlug, mailroomSlug, session]);
 
   // Reset packages when resident changes
   useEffect(() => {
@@ -187,10 +221,17 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
     setAlerts(prev => prev.filter(alert => alert.id !== id));
   };
 
+  // Configure autocomplete props based on pickup option
   const acProps: AcProps<Resident> = {
     apiRoute: orgSlug && mailroomSlug ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}` : 'get-residents',
-    acLabel: 'Student ID',
-    displayOption: (resident: Resident) => resident.student_id,
+    acLabel: pickupOption === 'resident_id' ? 'Student ID' : 'Resident Name',
+    displayOption: (resident: Resident) => {
+      if (pickupOption === 'resident_id') {
+        return resident.student_id;
+      } else {
+        return `${resident.first_name} ${resident.last_name}`;
+      }
+    },
     record: resident,
     setRecord: setResident,
     setLoaded,
@@ -226,6 +267,9 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
                 {resident && (
                   <div className="mt-2 text-sm text-[#471803]">
                     <p><strong>Selected Resident:</strong> {resident.first_name} {resident.last_name}</p>
+                    {pickupOption === 'resident_name' && (
+                      <p><strong>Student ID:</strong> {resident.student_id}</p>
+                    )}
                   </div>
                 )}
               </div>
