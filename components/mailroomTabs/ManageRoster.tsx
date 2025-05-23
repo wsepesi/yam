@@ -83,6 +83,13 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
   
   // State for upload warning modal
   const [isUploadWarningModalOpen, setIsUploadWarningModalOpen] = useState(false);
+  
+  // State for upload progress
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStepMessage, setUploadStepMessage] = useState('');
+  const [filledDots, setFilledDots] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const totalDots = 3;
 
   const loadResidents = useCallback(async () => {
     if (!session) {
@@ -114,6 +121,52 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
     loadResidents();
   }, [loadResidents]);
   
+  // Progress-based dot filling
+  useEffect(() => {
+    if (uploadProgress === 0) {
+      setFilledDots(0);
+    } else if (uploadProgress < 100) {
+      setFilledDots(1); // In progress
+    } else {
+      setFilledDots(totalDots); // Complete
+    }
+  }, [uploadProgress, totalDots]);
+
+  // Time-based "walking" animation during waiting periods
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isUploading && filledDots < totalDots) {
+      let currentWalkingDot = filledDots;
+      
+      interval = setInterval(() => {
+        currentWalkingDot = (currentWalkingDot >= filledDots && currentWalkingDot < totalDots - 1) 
+          ? currentWalkingDot + 1 
+          : filledDots;
+          
+        setFilledDots(prev => {
+          if (prev > currentWalkingDot) return prev;
+          return currentWalkingDot;
+        });
+      }, 300);
+    }
+    
+    return () => clearInterval(interval);
+  }, [isUploading, filledDots, totalDots]);
+
+  const getDotDisplay = () => {
+    const emptyDot = '·';
+    const filledDot = '●';
+    
+    const dotsArray = Array(totalDots).fill(emptyDot);
+    
+    for (let i = 0; i < filledDots; i++) {
+      dotsArray[i] = filledDot;
+    }
+    
+    return dotsArray.join(' ');
+  };
+
   // Actions for resident table
   const residentActions: ResidentActionHandlers = {
     onRemove: (resident) => {
@@ -138,7 +191,7 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
     },
     initialState: {
       pagination: {
-        pageSize: 9,
+        pageSize: 6,
       },
     },
   });
@@ -253,8 +306,21 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
     }
     
     setFileError(null); // Clear previous errors
+    setUploadProgress(0);
+    setUploadStepMessage('');
+    setFilledDots(0);
+    setIsUploading(true);
 
     try {
+      setUploadProgress(10);
+      setUploadStepMessage('Preparing roster data...');
+      
+      // Small delay to show initial progress
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setUploadProgress(30);
+      setUploadStepMessage('Uploading roster to server...');
+
       const response = await fetch('/api/upload-roster', {
         method: 'POST',
         headers: {
@@ -264,20 +330,48 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
         body: JSON.stringify({ residents: parsedData, orgSlug, mailroomSlug }), // Add slugs to body
       });
 
+      setUploadProgress(70);
+      setUploadStepMessage('Processing roster data...');
+
       const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to upload roster. Status: ' + response.status);
       }
 
+      setUploadProgress(90);
+      setUploadStepMessage('Finalizing...');
+      
+      // Small delay to show completion progress
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       // Success
+      setUploadProgress(100);
+      setUploadStepMessage('Roster uploaded successfully!');
+      
       console.log("Upload successful:", result.message);
+      
+      // Small delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       setIsUploadModalOpen(false);
       setSelectedFile(null);
       setParsedData([]);
       
+      // Create detailed description if counts are available
+      let description = result.message;
+      if (result.counts) {
+        const { new: newCount, unchanged, updated, removed } = result.counts;
+        const details = [];
+        if (newCount > 0) details.push(`${newCount} new`);
+        if (unchanged > 0) details.push(`${unchanged} unchanged`);
+        if (updated > 0) details.push(`${updated} updated`);
+        if (removed > 0) details.push(`${removed} removed`);
+        description = `Roster processed successfully: ${details.join(', ')}.`;
+      }
+      
       toast.success("Roster uploaded successfully.", {
-        description: result.message,
+        description: description,
         style: {
           backgroundColor: '#fffaf5',
           border: '1px solid #471803',
@@ -291,7 +385,11 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
     } catch (uploadError) {
       console.error("Error uploading roster:", uploadError);
       setFileError(uploadError instanceof Error ? uploadError.message : "Failed to upload roster.");
+      setUploadStepMessage('Upload failed.');
+      setUploadProgress(0);
       // Keep modal open if error occurs so user can see the error
+    } finally {
+      setIsUploading(false);
     }
   };
   
@@ -377,7 +475,7 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
           <div className="bg-white p-6 rounded-none shadow-xl w-full max-w-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-[#471803]">Confirm Roster Upload</h3>
-              <button onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); setParsedData([]); setFileError(null);}} className="p-1 hover:bg-gray-200 rounded-none">
+              <button onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); setParsedData([]); setFileError(null);}} className="p-1 hover:bg-gray-200 rounded-none" disabled={isUploading}>
                 <X size={20} className="text-[#471803]/70" />
               </button>
             </div>
@@ -386,6 +484,22 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                     <AlertCircle size={16} /><span>{fileError}</span>
                 </div>
             )}
+            
+            {isUploading && (
+              <div className="my-4">
+                <div className="text-sm text-[#471803]/80 mb-1">{uploadStepMessage}</div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 border border-[#471803]/30">
+                  <div
+                    className="bg-[#471803] h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <div className="text-center text-lg font-mono text-[#471803]/70 mt-2 tracking-widest">
+                  {getDotDisplay()}
+                </div>
+              </div>
+            )}
+            
             <p className="text-sm text-[#471803]/90 mb-2">
               Found {parsedData.length} residents in the file. Please review the first few entries below.
             </p>
@@ -420,15 +534,16 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                 variant="outline" 
                 onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); setParsedData([]); setFileError(null);}}
                 className="border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-3 py-1.5 text-sm h-auto rounded-none"
+                disabled={isUploading}
               >
                 Cancel
               </Button>
               <Button 
                 onClick={handleConfirmUpload} 
-                disabled={!!fileError || parsedData.length === 0}
+                disabled={!!fileError || parsedData.length === 0 || isUploading}
                 className="bg-[#471803] text-white hover:bg-[#5a2e1a] px-3 py-1.5 text-sm h-auto rounded-none disabled:opacity-50"
               >
-                Confirm & Upload {parsedData.length > 0 ? `(${parsedData.length})` : ''}
+                {isUploading ? 'Uploading...' : `Confirm & Upload ${parsedData.length > 0 ? `(${parsedData.length})` : ''}`}
               </Button>
             </div>
           </div>
@@ -566,12 +681,12 @@ export default function ManageRoster({ orgSlug, mailroomSlug }: MailroomTabProps
                   placeholder="Search last name..." 
                   value={(table.getColumn('last_name')?.getFilterValue() as string) ?? ''} 
                   onChange={(event) => table.getColumn('last_name')?.setFilterValue(event.target.value)}
-                  className="pl-6 pr-2 py-1 text-xs h-auto bg-white border-[#471803]/50 focus:border-[#471803] focus:ring-[#471803] rounded-none w-48"
+                  className="pl-6 pr-2 py-1.5 text-sm h-auto bg-white border-[#471803]/50 focus:border-[#471803] focus:ring-[#471803] rounded-none w-48"
                 />
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-1 text-xs h-auto rounded-none">
+                  <Button variant="outline" className="ml-1 border-[#471803]/50 text-[#471803] hover:bg-[#471803]/10 px-2 py-1.5 text-sm h-auto rounded-none">
                     Columns <ChevronDown className="ml-1 h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
