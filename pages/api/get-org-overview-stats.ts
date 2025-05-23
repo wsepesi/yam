@@ -138,14 +138,23 @@ export default async function handler(
     
     if (allProfilesError) throw new Error(`Failed to fetch profiles for mailrooms: ${allProfilesError.message}`);
 
+    // Fetch active residents for all mailrooms
+    const { data: allResidents, error: allResidentsError } = await supabaseAdmin
+      .from('residents')
+      .select('id, mailroom_id')
+      .eq('status', 'ACTIVE')
+      .in('mailroom_id', mailroomIDs);
+    
+    if (allResidentsError) throw new Error(`Failed to fetch residents for mailrooms: ${allResidentsError.message}`);
+
     for (const mr of mailroomsData as MailroomCoreData[]) {
       const packagesForMailroom = allPackages?.filter(p => p.mailroom_id === mr.id) || [];
       const profilesForMailroom = allProfiles?.filter(p => p.mailroom_id === mr.id) || [];
+      const residentsForMailroom = allResidents?.filter(r => r.mailroom_id === mr.id) || [];
 
       const totalPackages = packagesForMailroom.length;
       
-      const uniqueResidentIds = new Set(packagesForMailroom.map(p => p.resident_id));
-      const totalResidents = uniqueResidentIds.size;
+      const totalResidents = residentsForMailroom.length;
 
       const packagesAwaitingPickup = packagesForMailroom.filter(p => p.status === 'WAITING').length;
       
