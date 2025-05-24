@@ -15,7 +15,7 @@ export interface PackageNoIds {
 
 export interface Package extends PackageNoIds {
   packageId: string;
-  status: "pending" | "picked_up" | "failed";
+  status: 'pending' | 'picked_up' | 'failed';
   createdAt: string;
   updatedAt: string;
   residentId: string;
@@ -42,4 +42,4 @@ export interface Resident {
   created_at: string; // TIMESTAMPTZ
   updated_at: string; // TIMESTAMPTZ
   added_by: string; // UUID
-}
+} 

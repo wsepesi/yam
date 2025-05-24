@@ -1,13 +1,11 @@
-import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-
+import { ArrowUpDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ColumnDef } from "@tanstack/react-table"
 export interface PackageCommon {
   id: string;
   residentName: string;
   residentEmail: string;
-  residentStudentId: string;
+  residentStudentId: string; 
   provider: string;
   createdAt: string;
   packageId?: string;
@@ -19,7 +17,7 @@ export interface RetrievedPackageInfo extends PackageCommon {
 }
 
 const formatDate = (dateString: string) => {
-  if (!dateString) return "N/A";
+  if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleString(); // Or a more specific format
 };
 
@@ -36,11 +34,9 @@ export const currentPackagesColumns: ColumnDef<PackageInfo>[] = [
           Name
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
-      );
+      )
     },
-    cell: ({ row }) => (
-      <div className="capitalize pl-3">{row.getValue("residentName")}</div>
-    ),
+    cell: ({ row }) => <div className="capitalize pl-3">{row.getValue("residentName")}</div>,
   },
   {
     accessorKey: "residentEmail",
@@ -54,11 +50,9 @@ export const currentPackagesColumns: ColumnDef<PackageInfo>[] = [
           Email
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
-      );
+      )
     },
-    cell: ({ row }) => (
-      <div className="lowercase">{row.getValue("residentEmail")}</div>
-    ),
+    cell: ({ row }) => <div className="lowercase">{row.getValue("residentEmail")}</div>,
   },
   {
     accessorKey: "residentStudentId",
@@ -78,9 +72,7 @@ export const currentPackagesColumns: ColumnDef<PackageInfo>[] = [
   {
     accessorKey: "packageId",
     header: "Package ID",
-    cell: ({ row }) => (
-      <div className="truncate max-w-xs">{row.getValue("packageId")}</div>
-    ),
+    cell: ({ row }) => <div className="truncate max-w-xs">{row.getValue("packageId")}</div>,
   },
 ];
 
@@ -97,9 +89,7 @@ export const retrievedPackagesColumns: ColumnDef<RetrievedPackageInfo>[] = [
         <ArrowUpDown className="ml-2 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => (
-      <div className="capitalize pl-3">{row.getValue("residentName")}</div>
-    ),
+    cell: ({ row }) => <div className="capitalize pl-3">{row.getValue("residentName")}</div>,
   },
   {
     accessorKey: "residentEmail",
@@ -113,9 +103,7 @@ export const retrievedPackagesColumns: ColumnDef<RetrievedPackageInfo>[] = [
         <ArrowUpDown className="ml-2 h-3 w-3" />
       </Button>
     ),
-    cell: ({ row }) => (
-      <div className="lowercase">{row.getValue("residentEmail")}</div>
-    ),
+    cell: ({ row }) => <div className="lowercase">{row.getValue("residentEmail")}</div>,
   },
   {
     accessorKey: "residentStudentId",
@@ -135,15 +123,11 @@ export const retrievedPackagesColumns: ColumnDef<RetrievedPackageInfo>[] = [
   {
     accessorKey: "retrievedTimestamp",
     header: "Retrieved Timestamp",
-    cell: ({ row }) => (
-      <div>{formatDate(row.getValue("retrievedTimestamp"))}</div>
-    ),
+    cell: ({ row }) => <div>{formatDate(row.getValue("retrievedTimestamp"))}</div>,
   },
   {
     accessorKey: "packageId",
     header: "Package ID",
-    cell: ({ row }) => (
-      <div className="truncate max-w-xs">{row.getValue("packageId")}</div>
-    ),
+    cell: ({ row }) => <div className="truncate max-w-xs">{row.getValue("packageId")}</div>,
   },
-];
+]; 

@@ -1,8 +1,7 @@
-import { useRouter } from "next/router";
-import { useEffect } from "react";
-
-import Layout from "@/components/Layout"; // Optional: if you want to show a layout during signout
-import { useAuth } from "@/context/AuthContext";
+import Layout from '@/components/Layout'; // Optional: if you want to show a layout during signout
+import { useAuth } from '@/context/AuthContext';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 const SignOutPage = () => {
   const { signOut } = useAuth();
@@ -12,12 +11,12 @@ const SignOutPage = () => {
     const performSignOut = async () => {
       try {
         await signOut();
-        router.push("/"); // Redirect to homepage after sign out
+        router.push('/'); // Redirect to homepage after sign out
       } catch (error) {
-        console.error("Error during sign out:", error);
+        console.error('Error during sign out:', error);
         // Optionally, handle error (e.g., show a message to the user)
         // For now, still redirect to homepage
-        router.push("/");
+        router.push('/');
       }
     };
 
@@ -33,4 +32,4 @@ const SignOutPage = () => {
   );
 };
 
-export default SignOutPage;
+export default SignOutPage; 

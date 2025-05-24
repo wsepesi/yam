@@ -1,12 +1,12 @@
-import { SupabaseAdapter } from "@auth/supabase-adapter";
-import { createClient } from "@supabase/supabase-js";
+import NextAuth, { type NextAuthOptions } from 'next-auth';
+import { SupabaseAdapter } from '@auth/supabase-adapter';
+import GithubProvider from 'next-auth/providers/github'; // Example provider
 // Import other providers you want (e.g., GoogleProvider, EmailProvider)
-import jwt from "jsonwebtoken";
-import NextAuth, { type NextAuthOptions } from "next-auth";
-import GithubProvider from "next-auth/providers/github"; // Example provider
+import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 
 // Define your role type - adjust if needed
-type UserRole = "user" | "manager" | "admin" | "super-admin";
+type UserRole = 'user' | 'manager' | 'admin' | 'super-admin';
 
 // Initialize Supabase client for fetching roles (use service role key for elevated privileges)
 // Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in your environment
@@ -30,7 +30,7 @@ export const authOptions: NextAuthOptions = {
     secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
   }),
   session: {
-    strategy: "jwt", // Use JWT for session strategy is recommended
+    strategy: 'jwt', // Use JWT for session strategy is recommended
   },
   callbacks: {
     async session({ session, token }) {
@@ -38,60 +38,54 @@ export const authOptions: NextAuthOptions = {
       const signingSecret = process.env.SUPABASE_JWT_SECRET;
       if (signingSecret && token.sub) {
         const payload = {
-          aud: "authenticated",
+          aud: 'authenticated',
           exp: Math.floor(new Date(session.expires).getTime() / 1000),
           sub: token.sub,
           email: token.email,
-          role: "authenticated", // Default Supabase role for RLS policies
+          role: 'authenticated', // Default Supabase role for RLS policies
         };
         session.supabaseAccessToken = jwt.sign(payload, signingSecret);
       }
 
       // Add custom user role and ID to the session from the token
       if (token.sub && session.user) {
-        session.user.id = token.sub;
-        session.user.role = token.role as UserRole; // Assign role from token
+         session.user.id = token.sub;
+         session.user.role = token.role as UserRole; // Assign role from token
       }
 
       return session;
     },
     async jwt({ token, user, isNewUser }) {
-      // On sign in, persist the user ID & fetch/persist the role into the JWT
-      if (user) {
-        // user is only passed on initial sign in
-        token.sub = user.id;
-        // Fetch role from DB upon initial sign in or if role is missing
-        if (user.id && (isNewUser || !token.role)) {
-          try {
-            // Assumes a 'profiles' table linked to auth.users via 'id'
-            // and a 'role' column on 'profiles'. Adjust if your schema differs.
-            const { data, error } = await supabaseAdmin
-              .from("profiles") // ADJUST TABLE NAME if different
-              .select("role")
-              .eq("id", user.id)
-              .single();
+       // On sign in, persist the user ID & fetch/persist the role into the JWT
+       if (user) { // user is only passed on initial sign in
+         token.sub = user.id;
+         // Fetch role from DB upon initial sign in or if role is missing
+         if (user.id && (isNewUser || !token.role)) {
+            try {
+               // Assumes a 'profiles' table linked to auth.users via 'id'
+               // and a 'role' column on 'profiles'. Adjust if your schema differs.
+               const { data, error } = await supabaseAdmin
+                 .from('profiles') // ADJUST TABLE NAME if different
+                 .select('role')
+                 .eq('id', user.id)
+                 .single();
 
-            if (error) {
-              console.error(
-                `Error fetching role for new/existing user ${user.id}:`,
-                error
-              );
-              token.role = "user"; // Default role on error
-            } else if (data) {
-              token.role = data.role;
-            } else {
-              console.warn(
-                `Role not found for user ${user.id}, defaulting to 'user'.`
-              );
-              token.role = "user"; // Default role if no profile/role found
+               if (error) {
+                 console.error(`Error fetching role for new/existing user ${user.id}:`, error);
+                 token.role = 'user'; // Default role on error
+               } else if (data) {
+                 token.role = data.role;
+               } else {
+                  console.warn(`Role not found for user ${user.id}, defaulting to 'user'.`);
+                  token.role = 'user'; // Default role if no profile/role found
+               }
+            } catch(e) {
+                console.error(`Exception fetching user role for ${user.id}:`, e);
+                token.role = 'user'; // Default on exception
             }
-          } catch (e) {
-            console.error(`Exception fetching user role for ${user.id}:`, e);
-            token.role = "user"; // Default on exception
-          }
-        }
-      }
-      return token;
+         }
+       }
+       return token;
     },
   },
   // Ensure NEXTAUTH_URL and NEXTAUTH_SECRET are set in environment variables

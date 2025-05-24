@@ -1,10 +1,10 @@
-import { type DefaultSession } from "next-auth";
+import { type DefaultSession } from 'next-auth';
 // import { JWT } from 'next-auth/jwt';
 
 // Define your role type - should match the one in [...nextauth].ts
-type UserRole = "user" | "manager" | "admin" | "super-admin";
+type UserRole = 'user' | 'manager' | 'admin' | 'super-admin';
 
-declare module "next-auth" {
+declare module 'next-auth' {
   /**
    * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
    */
@@ -13,7 +13,7 @@ declare module "next-auth" {
     user: {
       id: string; // Ensure the ID field is typed
       role: UserRole; // Add the role field
-    } & DefaultSession["user"]; // Keep default fields like name, email, image
+    } & DefaultSession['user']; // Keep default fields like name, email, image
   }
 
   // Optional: If you need the role on the User object returned by the adapter
@@ -22,7 +22,7 @@ declare module "next-auth" {
   // }
 }
 
-declare module "next-auth/jwt" {
+declare module 'next-auth/jwt' {
   /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
   interface JWT {
     role?: UserRole; // Add the role field to the JWT
@@ -30,4 +30,4 @@ declare module "next-auth/jwt" {
     // If you need it to be strictly string, you can override:
     sub: string;
   }
-}
+} 

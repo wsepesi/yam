@@ -1,15 +1,15 @@
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
-import Layout from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import Layout from '@/components/Layout';
+import { useRouter } from 'next/router';
 
 const SUPABASE_VERIFY_URL_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/verify`;
 const SITE_URL = "https://useyam.com";
 const REGISTER_PATH = "/register";
 
-type PageStep = "loading" | "emailInput" | "confirmProceed" | "error";
+type PageStep = 'loading' | 'emailInput' | 'confirmProceed' | 'error';
 
 const isValidEmail = (email: string): boolean => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -17,34 +17,32 @@ const isValidEmail = (email: string): boolean => {
 
 const ConfirmSignupPage = () => {
   const router = useRouter();
-  const [pageStep, setPageStep] = useState<PageStep>("loading");
+  const [pageStep, setPageStep] = useState<PageStep>('loading');
   const [token, setToken] = useState<string | null>(null);
-  const [emailInput, setEmailInput] = useState<string>("");
+  const [emailInput, setEmailInput] = useState<string>('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [confirmationUrl, setConfirmationUrl] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!router.isReady) {
-      setPageStep("loading");
+      setPageStep('loading');
       return;
     }
 
     const tokenParam = router.query.token;
-    if (typeof tokenParam === "string" && tokenParam) {
+    if (typeof tokenParam === 'string' && tokenParam) {
       setToken(tokenParam);
       setGeneralError(null);
-      setPageStep("emailInput");
+      setPageStep('emailInput');
     } else if (tokenParam) {
       setToken(null);
       setGeneralError("The token in the link is incorrectly formatted.");
-      setPageStep("error");
+      setPageStep('error');
     } else {
       setToken(null);
-      setGeneralError(
-        "Confirmation token not found in the link. Please check the link and try again."
-      );
-      setPageStep("error");
+      setGeneralError("Confirmation token not found in the link. Please check the link and try again.");
+      setPageStep('error');
     }
   }, [router.isReady, router.query]);
 
@@ -57,8 +55,7 @@ const ConfirmSignupPage = () => {
   };
 
   const handleEmailSubmit = () => {
-    if (!isValidEmail(emailInput)) {
-      // Re-check here, though button visibility should prevent this
+    if (!isValidEmail(emailInput)) { // Re-check here, though button visibility should prevent this
       setEmailError("Please enter a valid email address.");
       return;
     }
@@ -71,19 +68,16 @@ const ConfirmSignupPage = () => {
         const url = new URL(supabaseVerifyUrl);
         setConfirmationUrl(url.toString());
         setGeneralError(null);
-        setPageStep("confirmProceed");
+        setPageStep('confirmProceed');
       } catch (e) {
-        console.error(
-          "Error constructing or validating the verification URL:",
-          e
-        );
+        console.error("Error constructing or validating the verification URL:", e);
         setGeneralError("There was an issue preparing your confirmation link.");
         setConfirmationUrl(null);
-        setPageStep("error");
+        setPageStep('error');
       }
     } else {
       setGeneralError("Confirmation token is missing. Cannot proceed.");
-      setPageStep("error");
+      setPageStep('error');
     }
   };
 
@@ -91,14 +85,12 @@ const ConfirmSignupPage = () => {
     if (confirmationUrl) {
       window.location.href = confirmationUrl;
     } else {
-      setGeneralError(
-        "Cannot proceed: Confirmation URL is missing or invalid."
-      );
-      setPageStep("error");
+      setGeneralError("Cannot proceed: Confirmation URL is missing or invalid.");
+      setPageStep('error');
     }
   };
 
-  if (pageStep === "loading") {
+  if (pageStep === 'loading') {
     return (
       <Layout title="Processing | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
@@ -108,17 +100,15 @@ const ConfirmSignupPage = () => {
     );
   }
 
-  if (pageStep === "error") {
+  if (pageStep === 'error') {
     return (
       <Layout title="Error | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
           <div className="w-full max-w-md p-8 text-center bg-[#ffeedd]">
-            <h1 className="text-2xl font-medium text-[#471803] mb-4">
-              Problem with Confirmation
-            </h1>
+            <h1 className="text-2xl font-medium text-[#471803] mb-4">Problem with Confirmation</h1>
             <p className="text-[#471803] mb-6">{generalError}</p>
             <Button
-              onClick={() => router.push("/login")}
+              onClick={() => router.push('/login')}
               className="bg-[#471803] hover:bg-[#471803]/90 text-white py-2 rounded-none"
             >
               Go to Login
@@ -129,7 +119,7 @@ const ConfirmSignupPage = () => {
     );
   }
 
-  if (pageStep === "emailInput") {
+  if (pageStep === 'emailInput') {
     return (
       <Layout title="Confirm Email | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
@@ -138,8 +128,7 @@ const ConfirmSignupPage = () => {
               Enter Your Email
             </h1>
             <p className="text-[#471803]/80">
-              Please enter your email address to proceed with account
-              confirmation.
+              Please enter your email address to proceed with account confirmation.
             </p>
             <Input
               type="email"
@@ -148,9 +137,7 @@ const ConfirmSignupPage = () => {
               placeholder="you@example.com"
               className="w-full p-2 border border-[#471803]/30 rounded-md focus:ring-[#471803] focus:border-[#471803] bg-white text-[#471803]"
             />
-            {emailError && (
-              <p className="text-red-500 text-sm -mt-3 mb-3">{emailError}</p>
-            )}
+            {emailError && <p className="text-red-500 text-sm -mt-3 mb-3">{emailError}</p>}
             {isValidEmail(emailInput) && (
               <Button
                 onClick={handleEmailSubmit}
@@ -164,8 +151,8 @@ const ConfirmSignupPage = () => {
       </Layout>
     );
   }
-
-  if (pageStep === "confirmProceed") {
+  
+  if (pageStep === 'confirmProceed') {
     return (
       <Layout title="Confirm Signup | Yam" glassy={false}>
         <div className="flex flex-1 justify-center items-center h-full">
@@ -174,8 +161,7 @@ const ConfirmSignupPage = () => {
               Confirm Your Account
             </h1>
             <p className="text-[#471803]/80">
-              Your confirmation link is ready. Click below to complete your
-              registration.
+              Your confirmation link is ready. Click below to complete your registration.
             </p>
             <Button
               onClick={handleProceed}

@@ -1,14 +1,14 @@
-import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, Trash } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { ArrowUpDown, MoreHorizontal, Trash } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Resident } from "@/lib/types"; // Assuming Resident type is defined in types
+
+import { Button } from "@/components/ui/button"
+import { ColumnDef } from "@tanstack/react-table"
+import { Resident } from '@/lib/types'; // Assuming Resident type is defined in types
 
 // Handler type for resident actions
 export type ResidentActionHandlers = {
@@ -31,11 +31,9 @@ export const residentColumns = (
           First Name
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
-      );
+      )
     },
-    cell: ({ row }) => (
-      <div className="capitalize pl-3">{row.getValue("first_name")}</div>
-    ),
+    cell: ({ row }) => <div className="capitalize pl-3">{row.getValue("first_name")}</div>,
   },
   {
     accessorKey: "last_name",
@@ -49,11 +47,9 @@ export const residentColumns = (
           Last Name
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
-      );
+      )
     },
-    cell: ({ row }) => (
-      <div className="capitalize pl-3">{row.getValue("last_name")}</div>
-    ),
+    cell: ({ row }) => <div className="capitalize pl-3">{row.getValue("last_name")}</div>,
   },
   {
     accessorKey: "email",
@@ -67,7 +63,7 @@ export const residentColumns = (
           Email
           <ArrowUpDown className="ml-2 h-3 w-3" />
         </Button>
-      );
+      )
     },
     cell: ({ row }) => <div className="lowercase">{row.getValue("email")}</div>,
   },
@@ -90,10 +86,7 @@ export const residentColumns = (
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="bg-white border-[#471803]/20 rounded-none"
-          >
+          <DropdownMenuContent align="end" className="bg-white border-[#471803]/20 rounded-none">
             <DropdownMenuItem
               className="text-red-600 cursor-pointer focus:bg-red-50 focus:text-red-700 rounded-none"
               onClick={() => actionHandlers?.onRemove(resident)}
@@ -106,4 +99,4 @@ export const residentColumns = (
       );
     },
   },
-];
+]; 

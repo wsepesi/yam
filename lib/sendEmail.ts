@@ -1,49 +1,49 @@
-import nodemailer from "nodemailer";
+import nodemailer from 'nodemailer'
 
 const sendEmailWithContent = async (
-  toEmail: string,
-  content: string,
-  adminEmail: string,
-  fromEmail: string,
-  fromPass: string | undefined,
-  subject: string
+    toEmail: string, 
+    content: string, 
+    adminEmail: string, 
+    fromEmail: string, 
+    fromPass: string | undefined,
+    subject: string
 ) => {
-  if (fromPass === undefined) {
-    throw new Error("pass not set");
-  }
+    if (fromPass === undefined) {
+        throw new Error("pass not set")
+    }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: fromEmail,
-      pass: fromPass,
-    },
-  });
+    const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: fromEmail,
+          pass: fromPass
+        }
+      });
 
-  const verified = await transporter.verify();
+    const verified = await transporter.verify()
 
-  if (!verified) {
-    throw new Error("transporter verification failed");
-  }
+    if (!verified) {
+        throw new Error("transporter verification failed");
+    }
 
-  const mailOptions = {
-    from: fromEmail,
-    to: toEmail,
-    subject,
-    text: content,
-    replyTo: adminEmail,
-    dsn: {
-      id: "53201",
-      return: "headers",
-      notify: ["failure", "delay"],
-      recipient: adminEmail,
-    },
-  };
+    const mailOptions = {
+        from: fromEmail,
+        to: toEmail,
+        subject: subject,
+        text: content,
+        replyTo: adminEmail,
+        dsn: {
+            id: '53201',
+            return: 'headers',
+            notify: ['failure', 'delay'],
+            recipient: adminEmail
+        }
+    }
 
-  const res = await transporter.sendMail(mailOptions);
-  if (res.rejected.length > 0) {
-    throw new Error("transporter sendMail failed");
-  }
-};
+    const res = await transporter.sendMail(mailOptions) 
+    if (res.rejected.length > 0) {
+        throw new Error("transporter sendMail failed");
+    }
+}
 
-export default sendEmailWithContent;
+export default sendEmailWithContent

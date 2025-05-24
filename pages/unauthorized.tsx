@@ -1,8 +1,7 @@
-import { useRouter } from "next/router";
-
-import Layout from "@/components/Layout";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { Button } from '@/components/ui/button';
+import Layout from '@/components/Layout';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/router';
 
 export default function Unauthorized() {
   const router = useRouter();
@@ -16,12 +15,12 @@ export default function Unauthorized() {
             Unauthorized Access
           </h1>
           <p className="text-[#471803] mb-6">
-            You don&apos;t have permission to access this page. Please contact
-            an administrator if you believe this is an error.
+            You don&apos;t have permission to access this page. 
+            Please contact an administrator if you believe this is an error.
           </p>
           <div className="flex flex-col space-y-3">
             <Button
-              onClick={() => router.push("/")}
+              onClick={() => router.push('/')}
               className="bg-[#471803] hover:bg-[#471803]/90 text-white py-2 rounded-none"
             >
               Go to Home
@@ -38,4 +37,4 @@ export default function Unauthorized() {
       </div>
     </Layout>
   );
-}
+} 

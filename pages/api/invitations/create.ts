@@ -1,75 +1,60 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import { NextApiRequest, NextApiResponse } from 'next';
 
-import getUserId from "@/lib/handleSession";
-import { createAdminClient } from "@/lib/supabase";
+import { createAdminClient } from '@/lib/supabase';
+import getUserId from '@/lib/handleSession';
 
 // Number of days until invitation expires
 const INVITATION_EXPIRY_DAYS = 7;
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Only allow POST requests
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const supabaseAdmin = createAdminClient();
+    const supabaseAdmin = createAdminClient()
     const authHeader = req.headers.authorization;
-    const userId = await getUserId(supabaseAdmin, authHeader);
+    const userId = await getUserId(supabaseAdmin, authHeader)
 
     // Get required parameters from request body
-    const { email, role = "user", organizationId, mailroomId } = req.body;
+    const { email, role = 'user', organizationId, mailroomId } = req.body;
 
     if (!email || !organizationId || !mailroomId) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Fetch current user's profile to check permissions
     const { data: userProfile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("role, organization_id")
-      .eq("id", userId)
+      .from('profiles')
+      .select('role, organization_id')
+      .eq('id', userId)
       .single();
 
     if (profileError || !userProfile) {
-      return res.status(400).json({ error: "Could not fetch user profile" });
+      return res.status(400).json({ error: 'Could not fetch user profile' });
     }
 
     // Verify user has manager or admin role
-    if (
-      userProfile.role !== "super-admin" &&
-      userProfile.role !== "admin" &&
-      userProfile.role !== "manager"
-    ) {
-      return res.status(403).json({
-        error: "Only super-admins, admins, and managers can send invitations",
-      });
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.role !== 'manager') {
+      return res.status(403).json({ error: 'Only super-admins, admins, and managers can send invitations' });
     }
 
     // Verify organization matches (unless admin or super-admin)
-    if (
-      userProfile.role !== "super-admin" &&
-      userProfile.role !== "admin" &&
-      userProfile.organization_id !== organizationId
-    ) {
-      return res.status(403).json({
-        error: "Managers can only send invitations for their own organization",
-      });
+    if (userProfile.role !== 'super-admin' && userProfile.role !== 'admin' && userProfile.organization_id !== organizationId) {
+      return res.status(403).json({ error: 'Managers can only send invitations for their own organization' });
     }
 
     // Verify mailroom exists and belongs to specified organization
     const { data: mailroom, error: mailroomError } = await supabaseAdmin
-      .from("mailrooms")
-      .select("id")
-      .eq("id", mailroomId)
-      .eq("organization_id", organizationId)
+      .from('mailrooms')
+      .select('id')
+      .eq('id', mailroomId)
+      .eq('organization_id', organizationId)
       .single();
 
     if (mailroomError || !mailroom) {
-      return res.status(400).json({ error: "Invalid mailroom" });
+      return res.status(400).json({ error: 'Invalid mailroom' });
     }
 
     // Set expiration date
@@ -78,7 +63,7 @@ export default async function handler(
 
     // Create the invitation record
     const { data: invitation, error: invitationError } = await supabaseAdmin
-      .from("invitations")
+      .from('invitations')
       .insert({
         email,
         role,
@@ -87,44 +72,43 @@ export default async function handler(
         invited_by: userId,
         expires_at: expiresAt.toISOString(),
         used: false,
-        status: "PENDING",
+        status: 'PENDING'
       })
       .select()
       .single();
 
     if (invitationError) {
-      return res.status(500).json({ error: "Failed to create invitation" });
+      return res.status(500).json({ error: 'Failed to create invitation' });
     }
 
     // Generate the invitation URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const invitationUrl = `${baseUrl}`;
 
     // Send the invitation email using Supabase's email functions
-    const { error: emailError } =
-      await supabaseAdmin.auth.admin?.inviteUserByEmail(email, {
-        redirectTo: invitationUrl,
-        data: {
-          invitation_id: invitation.id,
-        },
-      });
+    const { error: emailError } = await supabaseAdmin.auth.admin?.inviteUserByEmail(email, {
+      redirectTo: invitationUrl,
+      data: {
+        invitation_id: invitation.id,
+      }
+    });
 
     if (emailError) {
-      console.error("Error sending invitation email:", emailError);
-      return res.status(500).json({ error: "Failed to send invitation email" });
-    }
+      console.error('Error sending invitation email:', emailError);
+      return res.status(500).json({ error: 'Failed to send invitation email' });
+    } 
 
     // Return success with the invitation data
     return res.status(200).json({
-      message: "Invitation sent successfully",
+      message: 'Invitation sent successfully',
       invitation: {
         id: invitation.id,
         email,
         expires_at: invitation.expires_at,
-      },
+      }
     });
   } catch (error) {
-    console.error("Error processing invitation:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error('Error processing invitation:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
