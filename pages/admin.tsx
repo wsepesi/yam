@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import { useRouter } from "next/router";
+import React, { useEffect, useState } from "react";
 
-import AdminOrganizationsTab from '@/components/adminTabs/AdminOrganizationsTab';
-import AdminOverviewTab from '@/components/adminTabs/AdminOverviewTab';
-import Layout from '@/components/Layout';
-import UserTabPageSkeleton from '@/components/UserTabPageSkeleton';
-import { useRouter } from 'next/router';
-import { useUserRole } from '@/context/AuthContext';
-import { withAuth } from '@/components/withAuth';
+import AdminOrganizationsTab from "@/components/adminTabs/AdminOrganizationsTab";
+import AdminOverviewTab from "@/components/adminTabs/AdminOverviewTab";
+import Layout from "@/components/Layout";
+import UserTabPageSkeleton from "@/components/UserTabPageSkeleton";
+import { withAuth } from "@/components/withAuth";
+import { useUserRole } from "@/context/AuthContext";
 
 // Define the possible tab values for the admin page
-const ADMIN_TABS = ['overview', 'organizations'] as const;
+const ADMIN_TABS = ["overview", "organizations"] as const;
 
 // Placeholder components for tab content
 // const AdminOverviewTab: React.FC = () => <p>Admin Overview Content</p>;
@@ -17,17 +17,17 @@ const ADMIN_TABS = ['overview', 'organizations'] as const;
 
 // Tab configuration mapping
 const TAB_CONFIG = {
-  'overview': {
-    title: 'overview',
+  overview: {
+    title: "overview",
     Component: AdminOverviewTab,
   },
-  'organizations': {
-    title: 'organizations',
+  organizations: {
+    title: "organizations",
     Component: AdminOrganizationsTab,
   },
 } as const;
 
-type AdminTabType = typeof ADMIN_TABS[number];
+type AdminTabType = (typeof ADMIN_TABS)[number];
 
 const AdminPage: React.FC = () => {
   const router = useRouter();
@@ -37,7 +37,7 @@ const AdminPage: React.FC = () => {
 
   // Only 'super-admin' can see this page
   const AVAILABLE_TABS = React.useMemo(() => {
-    if (role === 'super-admin') {
+    if (role === "super-admin") {
       return [...ADMIN_TABS];
     }
     return [];
@@ -45,12 +45,13 @@ const AdminPage: React.FC = () => {
 
   // Determine the active tab, default to 'overview'
   const activeTab: AdminTabType = React.useMemo(() => {
-    if (!router.isReady) return 'overview'; // Default during hydration
+    if (!router.isReady) return "overview"; // Default during hydration
 
-    const currentTabValue = (Array.isArray(tab) ? tab[0] : tab)?.replace(/-/g, ' ') || 'overview';
+    const currentTabValue =
+      (Array.isArray(tab) ? tab[0] : tab)?.replace(/-/g, " ") || "overview";
 
     if (!AVAILABLE_TABS.includes(currentTabValue as AdminTabType)) {
-      return AVAILABLE_TABS.length > 0 ? AVAILABLE_TABS[0] as AdminTabType : 'overview';
+      return AVAILABLE_TABS.length > 0 ? AVAILABLE_TABS[0] : "overview";
     }
     return currentTabValue as AdminTabType;
   }, [router.isReady, tab, AVAILABLE_TABS]);
@@ -64,47 +65,62 @@ const AdminPage: React.FC = () => {
 
   // Handle invalid tabs in URL query and redirect if necessary
   useEffect(() => {
-    if (router.isReady && AVAILABLE_TABS.length > 0 && role === 'super-admin') {
-      const rawTabQueryParam = Array.isArray(router.query.tab) ? router.query.tab[0] : router.query.tab;
+    if (router.isReady && AVAILABLE_TABS.length > 0 && role === "super-admin") {
+      const rawTabQueryParam = Array.isArray(router.query.tab)
+        ? router.query.tab[0]
+        : router.query.tab;
 
       if (rawTabQueryParam) {
-        const normalizedRawTab = rawTabQueryParam.replace(/-/g, ' ');
+        const normalizedRawTab = rawTabQueryParam.replace(/-/g, " ");
         if (!AVAILABLE_TABS.includes(normalizedRawTab as AdminTabType)) {
-          const defaultAvailableTab = AVAILABLE_TABS[0] as AdminTabType;
-          const defaultUrlQuerySegment = defaultAvailableTab.replace(/\s+/g, '-');
+          const defaultAvailableTab = AVAILABLE_TABS[0];
+          const defaultUrlQuerySegment = defaultAvailableTab.replace(
+            /\s+/g,
+            "-"
+          );
 
-          if (defaultAvailableTab === 'overview') {
-            router.replace('/admin', undefined, { shallow: true });
+          if (defaultAvailableTab === "overview") {
+            router.replace("/admin", undefined, { shallow: true });
           } else {
-            router.replace(`/admin?tab=${defaultUrlQuerySegment}`, undefined, { shallow: true });
+            router.replace(`/admin?tab=${defaultUrlQuerySegment}`, undefined, {
+              shallow: true,
+            });
           }
         }
       }
     }
   }, [router.isReady, router.query.tab, role, AVAILABLE_TABS, router]);
 
-
   // Handle loading state
   if (!router.isReady || isRoleLoading || isValidating) {
-    return <Layout title="Admin Dashboard" glassy={false}><UserTabPageSkeleton /></Layout>;
+    return (
+      <Layout title="Admin Dashboard" glassy={false}>
+        <UserTabPageSkeleton />
+      </Layout>
+    );
   }
 
   if (AVAILABLE_TABS.length === 0 && !isRoleLoading) {
-     return (
-        <Layout title="Access Denied" glassy={false}>
-            <div className="flex flex-col items-center justify-center h-full">
-                <h1 className="text-2xl font-semibold text-gray-700">Access Denied</h1>
-                <p className="text-gray-500">You do not have permission to view this page. This page is for super-admins only.</p>
-            </div>
-        </Layout>
-     );
+    return (
+      <Layout title="Access Denied" glassy={false}>
+        <div className="flex flex-col items-center justify-center h-full">
+          <h1 className="text-2xl font-semibold text-gray-700">
+            Access Denied
+          </h1>
+          <p className="text-gray-500">
+            You do not have permission to view this page. This page is for
+            super-admins only.
+          </p>
+        </div>
+      </Layout>
+    );
   }
 
   const handleTabClick = (newTab: AdminTabType) => {
-    const urlTabSegment = newTab.replace(/\s+/g, '-');
+    const urlTabSegment = newTab.replace(/\s+/g, "-");
     let path;
-    if (newTab === 'overview') {
-      path = '/admin';
+    if (newTab === "overview") {
+      path = "/admin";
     } else {
       path = `/admin?tab=${urlTabSegment}`;
     }
@@ -127,12 +143,14 @@ const AdminPage: React.FC = () => {
                       key={tabName}
                       onClick={() => handleTabClick(tabName)}
                       className={`text-xs px-3 py-2 text-left tracking-wide relative ${
-                        activeTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                        activeTab === tabName
+                          ? "text-[#471803] font-bold"
+                          : "text-gray-500"
                       } hover:text-[#471803] transition-colors`}
                     >
                       {TAB_CONFIG[tabName].title}
                       {activeTab === tabName && (
-                        <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
+                        <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]" />
                       )}
                     </button>
                   ))}
@@ -147,12 +165,12 @@ const AdminPage: React.FC = () => {
           <div className="flex justify-between items-center mb-4 pt-6">
             <h1 className="text-2xl font-bold text-[#471803] relative">
               YAM ADMIN
-              <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]"></div>
+              <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]" />
             </h1>
             {TAB_CONFIG[activeTab]?.title && (
               <h2 className="text-xl font-semibold text-[#471803] italic relative">
                 {TAB_CONFIG[activeTab].title}
-                <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]"></div>
+                <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]" />
               </h2>
             )}
           </div>
@@ -163,4 +181,4 @@ const AdminPage: React.FC = () => {
   );
 };
 
-export default withAuth(AdminPage, 'super-admin'); 
+export default withAuth(AdminPage, "super-admin");

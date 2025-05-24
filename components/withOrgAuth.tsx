@@ -1,3 +1,3 @@
 export function withOrgAuth() {
-  return <div></div>
+  return <div />;
 }

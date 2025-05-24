@@ -91,12 +91,16 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-h1, h2 {
+h1,
+h2 {
   font-family: var(--font-spectral), serif;
 }
 
-h3, h4, h5, h6 {
-  font-family: 'Special Gothic', sans-serif;
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Special Gothic", sans-serif;
 }
 
 .dark {

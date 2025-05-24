@@ -1,14 +1,12 @@
-import { AlertCircle, Package, Search, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertCircle, Package, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 
-import { AcProps } from '@/lib/types';
-import AutocompleteWithDb from '@/components/AutocompleteWithDb';
-import { LogPackage } from '@/pages/api/log-package';
-import { MailroomTabProps } from '@/lib/types/MailroomTabProps';
-import { Package as PackageType } from '@/lib/types';
-import { Resident } from '@/lib/types';
-import { useAuth } from '@/context/AuthContext';
-import { z } from 'zod';
+import AutocompleteWithDb from "@/components/AutocompleteWithDb";
+import { useAuth } from "@/context/AuthContext";
+import type { AcProps, Package as PackageType, Resident } from "@/lib/types";
+import type { MailroomTabProps } from "@/lib/types/MailroomTabProps";
+import type { LogPackage } from "@/pages/api/log-package";
 
 interface PackageAlert extends LogPackage {
   id: string;
@@ -19,9 +17,11 @@ const pickupSchema = z.object({
     First_Name: z.string(),
     Last_Name: z.string(),
     Default_Email: z.string().email(),
-    University_ID: z.string()
+    University_ID: z.string(),
   }),
-  selectedPackages: z.array(z.string()).min(1, "Please select at least one package")
+  selectedPackages: z
+    .array(z.string())
+    .min(1, "Please select at least one package"),
 });
 
 export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
@@ -34,34 +34,42 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [pickupOption, setPickupOption] = useState<'resident_id' | 'resident_name'>('resident_id');
+  const [pickupOption, setPickupOption] = useState<
+    "resident_id" | "resident_name"
+  >("resident_id");
 
   // Fetch pickup settings when component mounts (non-blocking)
   useEffect(() => {
     const fetchPickupSettings = async () => {
       if (!orgSlug || !mailroomSlug || !session) return;
-      
+
       try {
         // First get mailroom ID
-        const mailroomDetailsRes = await fetch(`/api/mailrooms/details?orgSlug=${orgSlug}&mailroomSlug=${mailroomSlug}`, {
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
-        });
+        const mailroomDetailsRes = await fetch(
+          `/api/mailrooms/details?orgSlug=${orgSlug}&mailroomSlug=${mailroomSlug}`,
+          {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }
+        );
         const mailroomDetailsData = await mailroomDetailsRes.json();
-        
+
         if (mailroomDetailsRes.ok && mailroomDetailsData.mailroomId) {
           // Then get settings
-          const settingsRes = await fetch(`/api/mailroom/get-settings?mailroomId=${mailroomDetailsData.mailroomId}`, {
-            headers: { 'Authorization': `Bearer ${session.access_token}` }
-          });
-          
+          const settingsRes = await fetch(
+            `/api/mailroom/get-settings?mailroomId=${mailroomDetailsData.mailroomId}`,
+            {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            }
+          );
+
           if (settingsRes.ok) {
             const settingsData = await settingsRes.json();
-            setPickupOption(settingsData.pickup_option || 'resident_id');
+            setPickupOption(settingsData.pickup_option || "resident_id");
           }
           // If settings fetch fails, keep default 'resident_id'
         }
       } catch (err) {
-        console.error('Error fetching pickup settings:', err);
+        console.error("Error fetching pickup settings:", err);
         // Keep default 'resident_id' on error
       }
     };
@@ -83,53 +91,59 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
   }, [resident, checkedItems, error]);
 
   const handleCheck = (packageId: string, checked: boolean) => {
-    setCheckedItems(prev => ({
+    setCheckedItems((prev) => ({
       ...prev,
-      [packageId]: checked
+      [packageId]: checked,
     }));
   };
 
   const handleSearch = async () => {
-    console.log('searching...')
+    console.log("searching...");
     if (!resident) {
-      setError('Please select a resident');
+      setError("Please select a resident");
       return;
     }
 
     try {
       if (!session) {
-        setError('You must be logged in to get packages');
+        setError("You must be logged in to get packages");
         return;
       }
-      
+
       setIsSearching(true);
       setError(null);
       setPackages(null);
-      
-      const res = await fetch('/api/get-packages', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-         },
-        body: JSON.stringify({ student_id: resident.student_id, orgSlug, mailroomSlug })
+
+      const res = await fetch("/api/get-packages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          student_id: resident.student_id,
+          orgSlug,
+          mailroomSlug,
+        }),
       });
 
-      if (!res.ok) throw new Error('Failed to fetch packages');
+      if (!res.ok) throw new Error("Failed to fetch packages");
 
       const data = await res.json();
       const packages = data.records as PackageType[];
-      
+
       if (packages.length === 0) {
-        setError('No packages found for this resident');
+        setError("No packages found for this resident");
         setPackages([]);
       } else {
         setPackages(packages);
-        setCheckedItems(Object.fromEntries(packages.map(pkg => [pkg.packageId, false])));
+        setCheckedItems(
+          Object.fromEntries(packages.map((pkg) => [pkg.packageId, false]))
+        );
       }
     } catch (err) {
-      console.error('Error fetching packages:', err);
-      setError('Failed to fetch packages');
+      console.error("Error fetching packages:", err);
+      setError("Failed to fetch packages");
     } finally {
       setIsSearching(false);
     }
@@ -138,12 +152,12 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const handlePickup = async () => {
     try {
       if (!resident || !packages) {
-        setError('Please select a resident and their packages');
+        setError("Please select a resident and their packages");
         return;
       }
 
       if (!session) {
-        setError('You must be logged in to pickup packages');
+        setError("You must be logged in to pickup packages");
         return;
       }
 
@@ -155,50 +169,54 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
       const validationResidentPayload = {
         First_Name: resident.first_name,
         Last_Name: resident.last_name,
-        Default_Email: resident.email || '',
-        University_ID: resident.student_id
+        Default_Email: resident.email || "",
+        University_ID: resident.student_id,
       };
 
       const validatedData = pickupSchema.parse({
         resident: validationResidentPayload,
-        selectedPackages: selectedPackageIds
+        selectedPackages: selectedPackageIds,
       });
 
       setIsProcessing(true);
       setError(null);
 
-      const selectedPackages = packages.filter(pkg => 
+      const selectedPackages = packages.filter((pkg) =>
         validatedData.selectedPackages.includes(pkg.packageId)
       );
 
       for (const pkg of selectedPackages) {
         // Remove package
-        const removeRes = await fetch('/api/remove-package', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-           },
-          body: JSON.stringify({ packageId: pkg.packageId, orgSlug, mailroomSlug })
+        const removeRes = await fetch("/api/remove-package", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            packageId: pkg.packageId,
+            orgSlug,
+            mailroomSlug,
+          }),
         });
 
-        if (!removeRes.ok) throw new Error('Failed to remove package');
+        if (!removeRes.ok) throw new Error("Failed to remove package");
 
         // Log package
-        const logRes = await fetch('/api/log-package', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-           },
-          body: JSON.stringify({ ...pkg, orgSlug, mailroomSlug })
+        const logRes = await fetch("/api/log-package", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ ...pkg, orgSlug, mailroomSlug }),
         });
 
-        if (!logRes.ok) throw new Error('Failed to log package');
+        if (!logRes.ok) throw new Error("Failed to log package");
 
         const loggedPackage = await logRes.json();
         const alertId = Math.random().toString(36).substring(7);
-        setAlerts(prev => [...prev, { ...loggedPackage, id: alertId }]);
+        setAlerts((prev) => [...prev, { ...loggedPackage, id: alertId }]);
       }
 
       // Reset form
@@ -207,10 +225,10 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
       setCheckedItems({});
     } catch (err) {
       if (err instanceof z.ZodError) {
-        setError('Please select at least one package');
+        setError("Please select at least one package");
       } else {
-        console.error('Error processing pickup:', err);
-        setError('An unexpected error occurred');
+        console.error("Error processing pickup:", err);
+        setError("An unexpected error occurred");
       }
     } finally {
       setIsProcessing(false);
@@ -218,15 +236,18 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
   };
 
   const dismissAlert = (id: string) => {
-    setAlerts(prev => prev.filter(alert => alert.id !== id));
+    setAlerts((prev) => prev.filter((alert) => alert.id !== id));
   };
 
   // Configure autocomplete props based on pickup option
   const acProps: AcProps<Resident> = {
-    apiRoute: orgSlug && mailroomSlug ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}` : 'get-residents',
-    acLabel: pickupOption === 'resident_id' ? 'Student ID' : 'Resident Name',
+    apiRoute:
+      orgSlug && mailroomSlug
+        ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}`
+        : "get-residents",
+    acLabel: pickupOption === "resident_id" ? "Student ID" : "Resident Name",
     displayOption: (resident: Resident) => {
-      if (pickupOption === 'resident_id') {
+      if (pickupOption === "resident_id") {
         return resident.student_id;
       } else {
         return `${resident.first_name} ${resident.last_name}`;
@@ -235,40 +256,51 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
     record: resident,
     setRecord: setResident,
     setLoaded,
-    headers: session ? { 'Authorization': `Bearer ${session.access_token}` } : undefined
+    headers: session
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : undefined,
   };
 
   return (
     <div className="w-full flex flex-col md:flex-row gap-6">
       <div className="w-full md:max-w-2xl">
-        <h2 className="text-xl font-medium text-[#471803] mb-2">Pickup Package</h2>
+        <h2 className="text-xl font-medium text-[#471803] mb-2">
+          Pickup Package
+        </h2>
 
         {!isProcessing && (
           <div className="space-y-8">
             <div className="flex items-start">
               <div className="flex-1">
-                <AutocompleteWithDb 
-                  {...acProps} 
-                  actionButton={loaded ? (
-                    <button
-                      onClick={handleSearch}
-                      className="px-3 bg-[#471803] text-white hover:bg-[#471803]/90 transition-colors border-l-2 border-[#471803] disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!resident || isSearching}
-                      aria-label="Search Packages"
-                    >
-                      {isSearching ? (
-                        <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></div>
-                      ) : (
-                        <Search size={16} />
-                      )}
-                    </button>
-                  ) : null}
+                <AutocompleteWithDb
+                  {...acProps}
+                  actionButton={
+                    loaded ? (
+                      <button
+                        onClick={handleSearch}
+                        className="px-3 bg-[#471803] text-white hover:bg-[#471803]/90 transition-colors border-l-2 border-[#471803] disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!resident || isSearching}
+                        aria-label="Search Packages"
+                      >
+                        {isSearching ? (
+                          <div className="animate-spin h-4 w-4 border-b-2 border-white rounded-full" />
+                        ) : (
+                          <Search size={16} />
+                        )}
+                      </button>
+                    ) : null
+                  }
                 />
                 {resident && (
                   <div className="mt-2 text-sm text-[#471803]">
-                    <p><strong>Selected Resident:</strong> {resident.first_name} {resident.last_name}</p>
-                    {pickupOption === 'resident_name' && (
-                      <p><strong>Student ID:</strong> {resident.student_id}</p>
+                    <p>
+                      <strong>Selected Resident:</strong> {resident.first_name}{" "}
+                      {resident.last_name}
+                    </p>
+                    {pickupOption === "resident_name" && (
+                      <p>
+                        <strong>Student ID:</strong> {resident.student_id}
+                      </p>
                     )}
                   </div>
                 )}
@@ -288,15 +320,23 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
                     Select Packages to Pick Up
                   </label>
                   {packages.map((pkg) => (
-                    <div key={pkg.packageId} className="flex items-center space-x-3">
+                    <div
+                      key={pkg.packageId}
+                      className="flex items-center space-x-3"
+                    >
                       <input
                         type="checkbox"
                         id={pkg.packageId}
                         checked={checkedItems[pkg.packageId] || false}
-                        onChange={(e) => handleCheck(pkg.packageId, e.target.checked)}
+                        onChange={(e) =>
+                          handleCheck(pkg.packageId, e.target.checked)
+                        }
                         className="h-4 w-4 rounded border-[#471803] text-[#471803] focus:ring-[#471803]"
                       />
-                      <label htmlFor={pkg.packageId} className="text-sm text-[#471803]">
+                      <label
+                        htmlFor={pkg.packageId}
+                        className="text-sm text-[#471803]"
+                      >
                         Package #{pkg.packageId} - {pkg.provider}
                       </label>
                     </div>
@@ -305,7 +345,9 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
 
                 <button
                   onClick={handlePickup}
-                  disabled={isProcessing || Object.values(checkedItems).every(v => !v)}
+                  disabled={
+                    isProcessing || Object.values(checkedItems).every((v) => !v)
+                  }
                   className="px-6 py-2 bg-[#471803] text-white hover:bg-[#471803]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Pick Up Selected Packages
@@ -316,7 +358,9 @@ export default function Pickup({ orgSlug, mailroomSlug }: MailroomTabProps) {
             {packages && packages.length === 0 && !isSearching && (
               <div className="flex items-center space-x-2 text-[#471803] bg-[#471803]/5 p-3 rounded-md animate-in fade-in slide-in-from-left-5">
                 <Package size={16} />
-                <span className="text-sm">No packages found for this resident</span>
+                <span className="text-sm">
+                  No packages found for this resident
+                </span>
               </div>
             )}
 

@@ -1,5 +1,5 @@
-import { ChevronDown, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronDown, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Props<T> {
   apiRoute: string;
@@ -12,9 +12,18 @@ interface Props<T> {
   headers?: Record<string, string>;
 }
 
-export default function AutocompleteWithDb<T>({ apiRoute, acLabel, displayOption, record, setRecord, setLoaded, actionButton, headers }: Props<T>) {
+export default function AutocompleteWithDb<T>({
+  apiRoute,
+  acLabel,
+  displayOption,
+  record,
+  setRecord,
+  setLoaded,
+  actionButton,
+  headers,
+}: Props<T>) {
   const [options, setOptions] = useState<T[]>([]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -22,13 +31,13 @@ export default function AutocompleteWithDb<T>({ apiRoute, acLabel, displayOption
     const fetchOptions = async () => {
       try {
         const response = await fetch(`/api/${apiRoute}`, { headers });
-        if (!response.ok) throw new Error('Failed to fetch options');
+        if (!response.ok) throw new Error("Failed to fetch options");
         const data = await response.json();
         setOptions(data.records || data);
         setLoading(false);
         setLoaded(true);
       } catch (error) {
-        console.error('Error fetching options:', error);
+        console.error("Error fetching options:", error);
         setLoading(false);
         setLoaded(true);
       }
@@ -37,7 +46,7 @@ export default function AutocompleteWithDb<T>({ apiRoute, acLabel, displayOption
     fetchOptions();
   }, [apiRoute, setLoaded, headers]);
 
-  const filteredOptions = options.filter(option =>
+  const filteredOptions = options.filter((option) =>
     displayOption(option).toLowerCase().includes(inputValue.toLowerCase())
   );
 
@@ -54,7 +63,7 @@ export default function AutocompleteWithDb<T>({ apiRoute, acLabel, displayOption
   };
 
   const handleClear = () => {
-    setInputValue('');
+    setInputValue("");
     setRecord(null);
     setIsOpen(false);
   };
@@ -93,7 +102,7 @@ export default function AutocompleteWithDb<T>({ apiRoute, acLabel, displayOption
           {actionButton}
         </div>
       </div>
-      
+
       {isOpen && !loading && (
         <div className="absolute z-10 w-full mt-1 bg-[#fffaf5] border-2 border-[#471803] max-h-60 overflow-auto">
           {filteredOptions.length > 0 ? (
@@ -113,4 +122,4 @@ export default function AutocompleteWithDb<T>({ apiRoute, acLabel, displayOption
       )}
     </div>
   );
-} 
+}

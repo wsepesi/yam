@@ -1,6 +1,6 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from "next";
 
-import sendEmailWithContent from '@/lib/sendEmail'; // Assuming this path is correct
+import sendEmailWithContent from "@/lib/sendEmail"; // Assuming this path is correct
 
 interface EmailPayload {
   recipientEmail: string;
@@ -18,8 +18,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
@@ -35,13 +35,22 @@ export default async function handler(
       fromPass,
     } = req.body as EmailPayload;
 
-    if (!recipientEmail || !packageId || !provider || !adminEmail || !fromEmail || !fromPass) {
-      return res.status(400).json({ error: 'Missing required email parameters.' });
+    if (
+      !recipientEmail ||
+      !packageId ||
+      !provider ||
+      !adminEmail ||
+      !fromEmail ||
+      !fromPass
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Missing required email parameters." });
     }
 
     const emailSubject = `New Package Notification (#${packageId})`;
     let emailBody = `
-Hello ${recipientFirstName || 'Resident'},
+Hello ${recipientFirstName || "Resident"},
 
 You have a new package (#${packageId}) waiting for you from ${provider}.
 `;
@@ -56,10 +65,12 @@ You have a new package (#${packageId}) waiting for you from ${provider}.
       emailBody += `\n${additionalText}\n`;
     }
 
-    emailBody += '\nThank you.';
+    emailBody += "\nThank you.";
 
     // Log attempt
-    console.log(`Attempting to send package notification email to ${recipientEmail} for package ${packageId}`);
+    console.log(
+      `Attempting to send package notification email to ${recipientEmail} for package ${packageId}`
+    );
 
     await sendEmailWithContent(
       recipientEmail,
@@ -71,13 +82,19 @@ You have a new package (#${packageId}) waiting for you from ${provider}.
     );
 
     // Log success
-    console.log(`Package notification email successfully sent to ${recipientEmail} for package ${packageId}`);
-    return res.status(200).json({ message: 'Email sent successfully.' });
-
+    console.log(
+      `Package notification email successfully sent to ${recipientEmail} for package ${packageId}`
+    );
+    return res.status(200).json({ message: "Email sent successfully." });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error sending package notification email:', errorMessage, error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error(
+      "Error sending package notification email:",
+      errorMessage,
+      error
+    );
     // Don't send detailed error to client for security, but important to log it
-    return res.status(500).json({ error: 'Failed to send email.' });
+    return res.status(500).json({ error: "Failed to send email." });
   }
-} 
+}

@@ -1,18 +1,23 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from "next";
 
-import { createAdminClient } from '@/lib/supabase';
-import getUserId from '@/lib/handleSession';
+import getUserId from "@/lib/handleSession";
+import { createAdminClient } from "@/lib/supabase";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
   const { mailroomId } = req.body;
 
   if (!mailroomId) {
-    return res.status(400).json({ error: 'Missing required field: mailroomId' });
+    return res
+      .status(400)
+      .json({ error: "Missing required field: mailroomId" });
   }
 
   try {
@@ -26,7 +31,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!callingUserId) {
       // getUserId handles its own error responses for invalid/missing tokens.
       // This is a fallback or for cases where getUserId might return null without an HTTP error.
-      return res.status(401).json({ error: 'User not authenticated or authorization failed.' });
+      return res
+        .status(401)
+        .json({ error: "User not authenticated or authorization failed." });
     }
 
     const packageNumbersToInsert = [];
@@ -36,7 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (let i = 1; i <= 999; i++) {
       // Generate a random timestamp between oneWeekAgo and now
-      const randomTimeOffset = Math.random() * (now.getTime() - oneWeekAgo.getTime());
+      const randomTimeOffset =
+        Math.random() * (now.getTime() - oneWeekAgo.getTime());
       const randomDate = new Date(oneWeekAgo.getTime() + randomTimeOffset);
 
       packageNumbersToInsert.push({
@@ -48,21 +56,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const { error: insertError } = await supabaseAdmin
-      .from('package_ids')
+      .from("package_ids")
       .insert(packageNumbersToInsert);
 
     if (insertError) {
-      console.error('Supabase insert package_ids error:', insertError);
-      return res.status(500).json({ error: insertError.message || 'Failed to populate package queue.' });
+      console.error("Supabase insert package_ids error:", insertError);
+      return res.status(500).json({
+        error: insertError.message || "Failed to populate package queue.",
+      });
     }
 
-    return res.status(201).json({ message: 'Package queue populated successfully.' });
-
+    return res
+      .status(201)
+      .json({ message: "Package queue populated successfully." });
   } catch (error) {
-    console.error('API error populating package queue:', error);
+    console.error("API error populating package queue:", error);
     if (error instanceof Error) {
       return res.status(500).json({ error: error.message });
     }
-    return res.status(500).json({ error: 'An unexpected error occurred on the server.' });
+    return res
+      .status(500)
+      .json({ error: "An unexpected error occurred on the server." });
   }
-} 
+}
