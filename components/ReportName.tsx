@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import { useState } from "react";
 
+import { logger } from "@/lib/logger";
+
 interface Props {
   open: boolean;
   handleClose: () => void;
@@ -31,7 +33,11 @@ export default function ReportName({ open, handleClose }: Props) {
       setEmail("");
       handleClose();
     } catch (error) {
-      console.error("Error submitting report:", error);
+      logger.error("Error submitting missing name report", {
+        name,
+        email,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }, error instanceof Error ? error : undefined);
     } finally {
       setSubmitting(false);
     }

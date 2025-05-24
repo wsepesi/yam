@@ -1,6 +1,8 @@
 import { ChevronDown, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { logger } from "@/lib/logger";
+
 interface Props<T> {
   apiRoute: string;
   acLabel: string;
@@ -37,7 +39,10 @@ export default function AutocompleteWithDb<T>({
         setLoading(false);
         setLoaded(true);
       } catch (error) {
-        console.error("Error fetching options:", error);
+        logger.error("Error fetching autocomplete options", {
+          apiRoute,
+          error: error instanceof Error ? error.message : "Unknown error"
+        }, error instanceof Error ? error : undefined);
         setLoading(false);
         setLoaded(true);
       }

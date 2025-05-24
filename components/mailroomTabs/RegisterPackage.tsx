@@ -2,6 +2,8 @@ import { AlertCircle, Package, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { logger } from "@/lib/logger";
+
 import AutocompleteWithDb from "@/components/AutocompleteWithDb";
 import ReportName from "@/components/ReportName";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -87,7 +89,11 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
         setAddingPackage(false);
         return;
       }
-      console.log(pkg);
+      logger.debug("Registering package", { 
+        packageData: pkg,
+        orgSlug,
+        mailroomSlug 
+      });
       const res = await fetch("/api/add-package", {
         method: "POST",
         headers: {
@@ -99,10 +105,19 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
 
       if (!res.ok) {
         if (res.status === 501) {
-          console.error("Unforeseen error. Please contact support.");
+          logger.error("Unforeseen error during package registration", {
+            status: res.status,
+            orgSlug,
+            mailroomSlug,
+            packageData: pkg
+          });
           setError("An unexpected error occurred. Please contact support.");
         } else {
-          console.log("Entering failure recovery mode");
+          logger.warn("Package registration failed, entering failure recovery mode", {
+            status: res.status,
+            orgSlug,
+            mailroomSlug
+          });
           const failedPackage = await res.json();
           await failPackage(failedPackage);
         }
@@ -120,7 +135,11 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
-      console.error("Error adding package:", err);
+      logger.error("Error adding package", {
+        orgSlug,
+        mailroomSlug,
+        error: err instanceof Error ? err.message : "Unknown error"
+      }, err instanceof Error ? err : undefined);
     } finally {
       setAddingPackage(false);
     }

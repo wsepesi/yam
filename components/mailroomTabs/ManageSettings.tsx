@@ -2,6 +2,8 @@ import { AlertCircle, Check, X } from "lucide-react";
 import { useRouter } from "next/router";
 import React, { type FormEvent, useEffect, useState } from "react";
 
+import { logger } from "@/lib/logger";
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -86,11 +88,20 @@ export default function ManageSettings() {
           });
         } else {
           const errorDetail = `Failed to load settings (status ${settingsRes.status}).`;
-          console.warn("Failed to fetch settings:", errorDetail);
+          logger.warn("Failed to fetch settings", {
+            orgSlug: org,
+            mailroomSlug: mailroom,
+            mailroomId: mailroomDetailsData.mailroomId,
+            status: settingsRes.status
+          });
           setError(errorDetail);
         }
       } catch (err) {
-        console.error("Error fetching initial data:", err);
+        logger.error("Error fetching initial data", {
+          orgSlug: org,
+          mailroomSlug: mailroom,
+          error: err instanceof Error ? err.message : "Unknown error"
+        }, err instanceof Error ? err : undefined);
         setError(
           err instanceof Error ? err.message : "Failed to load initial data."
         );
@@ -141,7 +152,11 @@ export default function ManageSettings() {
       }
       setSuccess("Settings updated successfully!");
     } catch (err) {
-      console.error("Error updating settings:", err);
+      logger.error("Error updating settings", {
+        mailroomId,
+        pickupOption: settings.pickupOption,
+        error: err instanceof Error ? err.message : "Unknown error"
+      }, err instanceof Error ? err : undefined);
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred."
       );

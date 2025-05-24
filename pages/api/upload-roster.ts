@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import getUserId from "@/lib/handleSession";
+import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase";
 
 interface UploadedResident {
@@ -26,7 +27,10 @@ export default async function handler(
     | { error: string }
   >
 ) {
+  const startTime = Date.now();
+  
   if (req.method !== "POST") {
+    logger.apiLog("POST", "/api/upload-roster", 405, Date.now() - startTime);
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -73,8 +77,9 @@ export default async function handler(
         .single();
 
     if (mailroomFetchError || !mailroomRecord) {
-      console.error(
-        `Error fetching mailroom by slug ${mailroomSlug}:`,
+      logger.error(
+        `Error fetching mailroom by slug ${mailroomSlug}`,
+        { mailroomSlug, orgSlug },
         mailroomFetchError
       );
       return res.status(404).json({ error: "Mailroom not found." });
@@ -88,8 +93,9 @@ export default async function handler(
       .single();
 
     if (orgFetchError || !orgData) {
-      console.error(
-        `Error fetching organization by slug ${orgSlug} or mailroom mismatch:`,
+      logger.error(
+        `Error fetching organization by slug ${orgSlug} or mailroom mismatch`,
+        { orgSlug, mailroomSlug, mailroomId: mailroomRecord.id },
         orgFetchError
       );
       return res.status(404).json({
@@ -119,7 +125,7 @@ export default async function handler(
       .eq("status", "ACTIVE");
 
     if (fetchError) {
-      console.error("Error fetching existing residents:", fetchError);
+      logger.error("Error fetching existing residents", { mailroomId, orgSlug, mailroomSlug }, fetchError);
       return res
         .status(500)
         .json({ error: "Failed to fetch existing residents." });
@@ -229,7 +235,12 @@ export default async function handler(
         .eq("id", residentUpdate.id);
 
       if (updateError) {
-        console.error("Error updating existing resident:", updateError);
+        logger.error("Error updating existing resident", { 
+          residentId: residentUpdate.id,
+          mailroomId,
+          orgSlug,
+          mailroomSlug 
+        }, updateError);
         return res
           .status(500)
           .json({ error: "Failed to update existing residents." });
@@ -246,8 +257,14 @@ export default async function handler(
         .eq("id", residentUnchanged.id);
 
       if (updateError) {
-        console.error(
-          "Error updating timestamp for unchanged resident:",
+        logger.error(
+          "Error updating timestamp for unchanged resident",
+          { 
+            residentId: residentUnchanged.id,
+            mailroomId,
+            orgSlug,
+            mailroomSlug 
+          },
           updateError
         );
         return res
@@ -273,7 +290,12 @@ export default async function handler(
         .in("id", idsToRemove);
 
       if (removeError) {
-        console.error("Error removing old residents:", removeError);
+        logger.error("Error removing old residents", { 
+          idsToRemove,
+          mailroomId,
+          orgSlug,
+          mailroomSlug 
+        }, removeError);
         return res
           .status(500)
           .json({ error: "Failed to remove old residents." });
@@ -289,7 +311,12 @@ export default async function handler(
         .select();
 
       if (insertError) {
-        console.error("Error inserting new residents:", insertError);
+        logger.error("Error inserting new residents", { 
+          residentsCount: residentsToInsert.length,
+          mailroomId,
+          orgSlug,
+          mailroomSlug 
+        }, insertError);
         return res.status(500).json({
           error: `Failed to insert new residents: ${insertError.message}`,
         });
@@ -302,6 +329,16 @@ export default async function handler(
     const unchangedCount = residentsUnchanged.length;
     const totalProcessed = insertedCount + updatedCount + unchangedCount;
 
+    logger.apiLog("POST", "/api/upload-roster", 200, Date.now() - startTime, {
+      totalProcessed,
+      new: insertedCount,
+      unchanged: unchangedCount,
+      updated: updatedCount,
+      removed: residentsToRemove.length,
+      orgSlug,
+      mailroomSlug
+    });
+
     return res.status(200).json({
       message: `${totalProcessed} residents processed: ${insertedCount} new, ${unchangedCount} unchanged, ${updatedCount} updated, ${residentsToRemove.length} removed.`,
       counts: {
@@ -313,7 +350,12 @@ export default async function handler(
       },
     });
   } catch (error: unknown) {
-    console.error("Error processing roster upload:", error);
+    logger.error("Error processing roster upload", {
+      orgSlug,
+      mailroomSlug,
+      residentsCount: req.body?.residents?.length
+    }, error instanceof Error ? error : new Error(String(error)));
+    
     let errorMessage = "Internal server error";
     if (error instanceof Error) {
       errorMessage = error.message;

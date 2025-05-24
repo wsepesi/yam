@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github"; // Example provider
 
+import { logger } from "@/lib/logger";
+
 // Define your role type - adjust if needed
 type UserRole = "user" | "manager" | "admin" | "super-admin";
 
@@ -72,21 +74,31 @@ export const authOptions: NextAuthOptions = {
               .single();
 
             if (error) {
-              console.error(
-                `Error fetching role for new/existing user ${user.id}:`,
+              logger.error(
+                `Error fetching role for new/existing user ${user.id}`,
+                { userId: user.id, isNewUser },
                 error
               );
               token.role = "user"; // Default role on error
             } else if (data) {
               token.role = data.role;
+              logger.info(`Role fetched for user ${user.id}`, { 
+                userId: user.id, 
+                role: data.role, 
+                isNewUser 
+              });
             } else {
-              console.warn(
-                `Role not found for user ${user.id}, defaulting to 'user'.`
+              logger.warn(
+                `Role not found for user ${user.id}, defaulting to 'user'`,
+                { userId: user.id, isNewUser }
               );
               token.role = "user"; // Default role if no profile/role found
             }
           } catch (e) {
-            console.error(`Exception fetching user role for ${user.id}:`, e);
+            logger.error(`Exception fetching user role for ${user.id}`, 
+              { userId: user.id, isNewUser }, 
+              e instanceof Error ? e : new Error(String(e))
+            );
             token.role = "user"; // Default on exception
           }
         }

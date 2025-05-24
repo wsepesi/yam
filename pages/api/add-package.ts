@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import getUserId from "@/lib/handleSession";
+import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase";
 import type { Package, PackageNoIds } from "@/lib/types";
 
@@ -8,7 +9,10 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Package | { error: string }>
 ) {
+  const startTime = Date.now();
+  
   if (req.method !== "POST") {
+    logger.apiLog("POST", "/api/add-package", 405, Date.now() - startTime);
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -48,8 +52,9 @@ export default async function handler(
       .single();
 
     if (mailroomError || !mailroomRecord) {
-      console.error(
-        `Error fetching mailroom by slug ${mailroomSlug}:`,
+      logger.error(
+        `Error fetching mailroom by slug ${mailroomSlug}`,
+        { mailroomSlug, orgSlug },
         mailroomError
       );
       return res.status(404).json({ error: "Mailroom not found." });
@@ -63,8 +68,9 @@ export default async function handler(
       .single();
 
     if (orgError || !orgRecord) {
-      console.error(
-        `Error fetching organization by slug ${orgSlug} or mailroom mismatch:`,
+      logger.error(
+        `Error fetching organization by slug ${orgSlug} or mailroom mismatch`,
+        { orgSlug, mailroomSlug, mailroomId: mailroomRecord.id },
         orgError
       );
       return res.status(404).json({
@@ -186,19 +192,33 @@ export default async function handler(
             const errorData = await response.json().catch(() => ({
               error: "Failed to parse error from send-notification-email",
             }));
-            console.error(
-              `Error triggering send-notification-email for package ${insertedPackage.package_id}: ${response.status}`,
-              errorData
+            logger.error(
+              `Error triggering send-notification-email for package ${insertedPackage.package_id}`,
+              { 
+                packageId: insertedPackage.package_id,
+                status: response.status,
+                errorData,
+                recipientEmail: existingResident.email
+              }
             );
           } else {
-            console.log(
-              `Successfully triggered send-notification-email for package ${insertedPackage.package_id}`
+            logger.info(
+              `Successfully triggered send-notification-email for package ${insertedPackage.package_id}`,
+              { 
+                packageId: insertedPackage.package_id,
+                recipientEmail: existingResident.email,
+                provider: insertedPackage.provider
+              }
             );
           }
         })
         .catch((error) => {
-          console.error(
-            `Network or other error triggering send-notification-email for package ${insertedPackage.package_id}:`,
+          logger.error(
+            `Network or other error triggering send-notification-email for package ${insertedPackage.package_id}`,
+            { 
+              packageId: insertedPackage.package_id,
+              recipientEmail: existingResident.email
+            },
             error
           );
         });
@@ -215,12 +235,23 @@ export default async function handler(
         updatedAt: insertedPackage.updated_at,
       };
 
+      logger.apiLog("POST", "/api/add-package", 200, Date.now() - startTime, {
+        packageId: insertedPackage.package_id,
+        provider: insertedPackage.provider,
+        orgSlug,
+        mailroomSlug
+      });
       return res.status(200).json(responsePackage);
     } catch (error) {
       throw error;
     }
   } catch (error) {
-    console.error("Error adding package:", error);
+    logger.error("Error adding package", {
+      orgSlug,
+      mailroomSlug,
+      residentId: req.body?.residentId,
+      provider: req.body?.provider
+    }, error instanceof Error ? error : new Error(String(error)));
 
     // Return more specific error for the client to handle
     const errorMessage =

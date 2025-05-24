@@ -1,6 +1,8 @@
 import { Home, Package, Users } from "lucide-react";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
+
+import { logger } from "@/lib/logger";
 import {
   CartesianGrid,
   Line,
@@ -150,7 +152,10 @@ export default function OrgOverview() {
         } else {
           setError("An unknown error occurred");
         }
-        console.error("Error fetching org overview stats:", err);
+        logger.error("Error fetching org overview stats", {
+          orgSlug,
+          error: err instanceof Error ? err.message : "Unknown error"
+        }, err instanceof Error ? err : undefined);
       } finally {
         setLoading(false);
       }

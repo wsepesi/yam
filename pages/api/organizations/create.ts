@@ -1,13 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import getUserId from "@/lib/handleSession";
+import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const startTime = Date.now();
+  
   if (req.method !== "POST") {
+    logger.apiLog("POST", "/api/organizations/create", 405, Date.now() - startTime);
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -62,8 +66,9 @@ export default async function handler(
 
     if (existingOrgError && existingOrgError.code !== "PGRST116") {
       // PGRST116: Row not found
-      console.error(
-        "Error checking for existing organization slug:",
+      logger.error(
+        "Error checking for existing organization slug",
+        { slug, name, userId },
         existingOrgError
       );
       return res
@@ -91,7 +96,13 @@ export default async function handler(
       .single();
 
     if (createError) {
-      console.error("Supabase create organization error:", createError);
+      logger.error("Supabase create organization error", { 
+        name, 
+        slug, 
+        userId, 
+        status,
+        errorCode: createError.code 
+      }, createError);
       // Check for unique constraint violation on slug, though we checked above, this is a safeguard
       if (createError.code === "23505") {
         // Unique violation
@@ -110,9 +121,21 @@ export default async function handler(
         .json({ error: "Organization created but no data was returned." });
     }
 
+    logger.apiLog("POST", "/api/organizations/create", 201, Date.now() - startTime, {
+      organizationId: newOrganization.id,
+      name,
+      slug,
+      status,
+      userId
+    });
+    
     return res.status(201).json(newOrganization);
   } catch (error) {
-    console.error("API error creating organization:", error);
+    logger.error("API error creating organization", { 
+      name: req.body?.name, 
+      slug: req.body?.slug 
+    }, error instanceof Error ? error : new Error(String(error)));
+    
     if (error instanceof Error) {
       return res.status(500).json({ error: error.message });
     }

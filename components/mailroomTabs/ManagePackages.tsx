@@ -15,6 +15,8 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
+import { logger } from "@/lib/logger";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -97,7 +99,11 @@ export default function ManagePackages() {
           throw new Error(data.error || "Failed to fetch mailroom details");
         setMailroomId(data.mailroomId);
       } catch (err) {
-        console.error("Error fetching mailroom details:", err);
+        logger.error("Error fetching mailroom details", {
+          orgSlug: org,
+          mailroomSlug: mailroom,
+          error: err instanceof Error ? err.message : "Unknown error"
+        }, err instanceof Error ? err : undefined);
         setError(
           err instanceof Error
             ? err.message
@@ -132,7 +138,10 @@ export default function ManagePackages() {
         throw new Error(data.error || "Failed to fetch current packages");
       setCurrentPackages(data.packages || []);
     } catch (err) {
-      console.error("Error fetching current packages:", err);
+      logger.error("Error fetching current packages", {
+        mailroomId,
+        error: err instanceof Error ? err.message : "Unknown error"
+      }, err instanceof Error ? err : undefined);
       setError(
         err instanceof Error ? err.message : "Could not load current packages."
       );
@@ -164,7 +173,13 @@ export default function ManagePackages() {
       }
       setTotalRetrievedPackages(data.totalCount || 0);
     } catch (err) {
-      console.error("Error fetching retrieved packages:", err);
+      logger.error("Error fetching retrieved packages", {
+        mailroomId,
+        limit,
+        offset,
+        initialLoad,
+        error: err instanceof Error ? err.message : "Unknown error"
+      }, err instanceof Error ? err : undefined);
       if (initialLoad) setRetrievedPackages([]);
     } finally {
       setIsLoadingRetrieved(false);
@@ -258,7 +273,12 @@ export default function ManagePackages() {
         },
       });
     } catch (error) {
-      console.error("Error exporting current packages:", error);
+      logger.error("Error exporting current packages", {
+        packagesCount: currentPackages.length,
+        org,
+        mailroom,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }, error instanceof Error ? error : undefined);
       toast.error("Failed to export current packages.", {
         style: {
           backgroundColor: "#fffaf5",
@@ -324,7 +344,12 @@ export default function ManagePackages() {
         },
       });
     } catch (error) {
-      console.error("Error exporting retrieved packages:", error);
+      logger.error("Error exporting retrieved packages", {
+        packagesCount: retrievedPackages.length,
+        org,
+        mailroom,
+        error: error instanceof Error ? error.message : "Unknown error"
+      }, error instanceof Error ? error : undefined);
       toast.error("Failed to export retrieved packages.", {
         style: {
           backgroundColor: "#fffaf5",

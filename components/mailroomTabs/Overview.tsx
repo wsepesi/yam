@@ -1,5 +1,7 @@
 import { Calendar, Package, Users } from "lucide-react";
 import React, { useEffect, useState } from "react";
+
+import { logger } from "@/lib/logger";
 import {
   CartesianGrid,
   Line,
@@ -116,7 +118,11 @@ export default function Overview({ orgSlug, mailroomSlug }: MailroomTabProps) {
         } else {
           setError("An unknown error occurred");
         }
-        console.error("Error fetching mailroom stats:", err);
+        logger.error("Error fetching mailroom stats", {
+          orgSlug,
+          mailroomSlug,
+          error: err instanceof Error ? err.message : "Unknown error"
+        }, err instanceof Error ? err : undefined);
       } finally {
         setLoading(false);
       }
