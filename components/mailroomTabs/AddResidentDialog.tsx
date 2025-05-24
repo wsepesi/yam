@@ -1,4 +1,6 @@
-import { AlertCircle, Check, X } from 'lucide-react';
+import { AlertCircle, Check, X } from "lucide-react";
+import React, { useState } from "react";
+
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -8,12 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import React, { useState } from 'react';
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 
 interface AddResidentDialogProps {
   isOpen: boolean;
@@ -28,13 +28,13 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
   onClose,
   onResidentAdded,
   orgSlug,
-  mailroomSlug
+  mailroomSlug,
 }) => {
   const { session } = useAuth();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [residentId, setResidentId] = useState('');
-  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [residentId, setResidentId] = useState("");
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -64,36 +64,36 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/add-resident', {
-        method: 'POST',
+      const response = await fetch("/api/add-resident", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           resident: {
             first_name: firstName,
             last_name: lastName,
             resident_id: residentId,
-            email: email,
+            email,
           },
           orgSlug,
-          mailroomSlug
+          mailroomSlug,
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to add resident.');
+        throw new Error(result.error || "Failed to add resident.");
       }
 
       // Success
       setSuccess(`Resident ${firstName} ${lastName} added successfully.`);
-      setFirstName('');
-      setLastName('');
-      setResidentId('');
-      setEmail('');
+      setFirstName("");
+      setLastName("");
+      setResidentId("");
+      setEmail("");
       onResidentAdded(); // Refresh the residents list
     } catch (err) {
       console.error("Error adding resident:", err);
@@ -109,7 +109,9 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent className="bg-[#fffaf5] border-2 border-[#471803] rounded-none max-w-lg w-full">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-[#471803] text-xl">Add New Resident</AlertDialogTitle>
+          <AlertDialogTitle className="text-[#471803] text-xl">
+            Add New Resident
+          </AlertDialogTitle>
           <AlertDialogDescription className="text-[#471803]/90">
             Enter the details for the new resident.
           </AlertDialogDescription>
@@ -136,7 +138,12 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div>
-            <Label htmlFor="firstName" className="text-[#471803]/90 block mb-1.5">First Name</Label>
+            <Label
+              htmlFor="firstName"
+              className="text-[#471803]/90 block mb-1.5"
+            >
+              First Name
+            </Label>
             <Input
               id="firstName"
               type="text"
@@ -148,7 +155,12 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
             />
           </div>
           <div>
-            <Label htmlFor="lastName" className="text-[#471803]/90 block mb-1.5">Last Name</Label>
+            <Label
+              htmlFor="lastName"
+              className="text-[#471803]/90 block mb-1.5"
+            >
+              Last Name
+            </Label>
             <Input
               id="lastName"
               type="text"
@@ -160,7 +172,12 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
             />
           </div>
           <div>
-            <Label htmlFor="residentId" className="text-[#471803]/90 block mb-1.5">Resident ID</Label>
+            <Label
+              htmlFor="residentId"
+              className="text-[#471803]/90 block mb-1.5"
+            >
+              Resident ID
+            </Label>
             <Input
               id="residentId"
               type="text"
@@ -172,7 +189,9 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
             />
           </div>
           <div>
-            <Label htmlFor="email" className="text-[#471803]/90 block mb-1.5">Email (optional)</Label>
+            <Label htmlFor="email" className="text-[#471803]/90 block mb-1.5">
+              Email (optional)
+            </Label>
             <Input
               id="email"
               type="email"
@@ -189,10 +208,10 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
                 onClose();
                 setError(null);
                 setSuccess(null);
-                setFirstName('');
-                setLastName('');
-                setResidentId('');
-                setEmail('');
+                setFirstName("");
+                setLastName("");
+                setResidentId("");
+                setEmail("");
               }}
               className="bg-white border border-[#471803]/50 text-[#471803] hover:bg-[#ffeedd] rounded-none px-4 py-2"
               disabled={isSubmitting}
@@ -204,11 +223,11 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
               className="bg-[#471803] hover:bg-[#471803]/90 text-white rounded-none px-4 py-2"
               disabled={isSubmitting || !firstName || !lastName || !residentId}
             >
-              {isSubmitting ? 'Adding...' : 'Add Resident'}
+              {isSubmitting ? "Adding..." : "Add Resident"}
             </Button>
           </AlertDialogFooter>
         </form>
       </AlertDialogContent>
     </AlertDialog>
   );
-}; 
+};

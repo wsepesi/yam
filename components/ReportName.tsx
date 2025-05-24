@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
-import { useState } from 'react';
+import { X } from "lucide-react";
+import { useState } from "react";
 
 interface Props {
   open: boolean;
@@ -7,8 +7,8 @@ interface Props {
 }
 
 export default function ReportName({ open, handleClose }: Props) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,22 +16,22 @@ export default function ReportName({ open, handleClose }: Props) {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/report-missing-name', {
-        method: 'POST',
+      const response = await fetch("/api/report-missing-name", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email }),
       });
 
-      if (!response.ok) throw new Error('Failed to submit report');
-      
+      if (!response.ok) throw new Error("Failed to submit report");
+
       // Reset form and close
-      setName('');
-      setEmail('');
+      setName("");
+      setEmail("");
       handleClose();
     } catch (error) {
-      console.error('Error submitting report:', error);
+      console.error("Error submitting report:", error);
     } finally {
       setSubmitting(false);
     }
@@ -49,9 +49,11 @@ export default function ReportName({ open, handleClose }: Props) {
         >
           <X size={20} />
         </button>
-        
-        <h2 className="text-xl font-medium text-[#471803] mb-4">Report Missing Name</h2>
-        
+
+        <h2 className="text-xl font-medium text-[#471803] mb-4">
+          Report Missing Name
+        </h2>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[#471803] mb-2">
@@ -66,7 +68,7 @@ export default function ReportName({ open, handleClose }: Props) {
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-[#471803] mb-2">
               Student Email
@@ -80,7 +82,7 @@ export default function ReportName({ open, handleClose }: Props) {
               required
             />
           </div>
-          
+
           <div className="flex justify-end space-x-4 pt-4">
             <button
               type="button"
@@ -93,14 +95,14 @@ export default function ReportName({ open, handleClose }: Props) {
               type="submit"
               disabled={submitting}
               className={`px-4 py-2 bg-[#471803] text-white hover:bg-[#471803]/90 transition-colors ${
-                submitting ? 'opacity-50 cursor-not-allowed' : ''
+                submitting ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
-              {submitting ? 'Submitting...' : 'Submit Report'}
+              {submitting ? "Submitting..." : "Submit Report"}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-} 
+}

@@ -1,13 +1,13 @@
-import { AcProps, Package as PackageType, Resident } from '@/lib/types';
-import { AlertCircle, Package, X } from 'lucide-react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useEffect, useState } from 'react';
+import { AlertCircle, Package, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 
-import AutocompleteWithDb from '@/components/AutocompleteWithDb';
-import { MailroomTabProps } from '@/lib/types/MailroomTabProps';
-import ReportName from '@/components/ReportName';
-import { useAuth } from '@/context/AuthContext';
-import { z } from 'zod';
+import AutocompleteWithDb from "@/components/AutocompleteWithDb";
+import ReportName from "@/components/ReportName";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useAuth } from "@/context/AuthContext";
+import type { AcProps, Package as PackageType, Resident } from "@/lib/types";
+import type { MailroomTabProps } from "@/lib/types/MailroomTabProps";
 
 const carriers = ["Amazon", "USPS", "UPS", "Fedex", "Letter", "Other"] as const;
 
@@ -16,9 +16,9 @@ const packageSchema = z.object({
     first_name: z.string(),
     last_name: z.string(),
     email: z.string().email(),
-    student_id: z.string()
+    student_id: z.string(),
   }),
-  carrier: z.enum(carriers)
+  carrier: z.enum(carriers),
 });
 
 interface PackageAlert extends PackageType {
@@ -29,7 +29,9 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
   const { session } = useAuth();
   const [addingPackage, setAddingPackage] = useState(false);
   const [alerts, setAlerts] = useState<PackageAlert[]>([]);
-  const [carrier, setCarrier] = useState<(typeof carriers)[number] | null>(null);
+  const [carrier, setCarrier] = useState<(typeof carriers)[number] | null>(
+    null
+  );
   const [record, setRecord] = useState<Resident | null>(null);
   const [noName, setNoName] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,17 +48,17 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
     setCarrier(null);
 
     if (!session) {
-      setError('You must be logged in to send invitations');
+      setError("You must be logged in to send invitations");
       return;
     }
 
-    await fetch('/api/fail-package', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-       },
-      body: JSON.stringify(pkg)
+    await fetch("/api/fail-package", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(pkg),
     });
   };
 
@@ -65,7 +67,7 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
       // Validate form data
       const validatedData = packageSchema.parse({
         resident: record,
-        carrier
+        carrier,
       });
 
       setAddingPackage(true);
@@ -78,27 +80,27 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
         provider: validatedData.carrier,
         residentId: validatedData.resident.student_id,
         orgSlug,
-        mailroomSlug
+        mailroomSlug,
       };
       if (!session) {
-        setError('You must be logged in to send invitations');
+        setError("You must be logged in to send invitations");
         setAddingPackage(false);
         return;
       }
       console.log(pkg);
-      const res = await fetch('/api/add-package', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-         },
-        body: JSON.stringify({ ...pkg, orgSlug, mailroomSlug })
+      const res = await fetch("/api/add-package", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ ...pkg, orgSlug, mailroomSlug }),
       });
 
       if (!res.ok) {
         if (res.status === 501) {
-          console.error('Unforeseen error. Please contact support.');
-          setError('An unexpected error occurred. Please contact support.');
+          console.error("Unforeseen error. Please contact support.");
+          setError("An unexpected error occurred. Please contact support.");
         } else {
           console.log("Entering failure recovery mode");
           const failedPackage = await res.json();
@@ -107,43 +109,51 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
       } else {
         const addedPackage = await res.json();
         const alertId = Math.random().toString(36).substring(7);
-        setAlerts(prev => [...prev, { ...addedPackage, id: alertId }]);
+        setAlerts((prev) => [...prev, { ...addedPackage, id: alertId }]);
         setAddingPackage(false);
         setRecord(null);
         setCarrier(null);
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
-        setError('Please fill in all required fields correctly.');
+        setError("Please fill in all required fields correctly.");
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError("An unexpected error occurred. Please try again.");
       }
-      console.error('Error adding package:', err);
+      console.error("Error adding package:", err);
     } finally {
       setAddingPackage(false);
     }
   };
 
   const dismissAlert = (id: string) => {
-    setAlerts(prev => prev.filter(alert => alert.id !== id));
+    setAlerts((prev) => prev.filter((alert) => alert.id !== id));
   };
 
   const acProps: AcProps<Resident> = {
-    apiRoute: orgSlug && mailroomSlug ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}` : 'get-residents',
-    acLabel: 'Resident',
-    displayOption: (resident: Resident) => `${resident.last_name}, ${resident.first_name}`,
+    apiRoute:
+      orgSlug && mailroomSlug
+        ? `get-residents?orgSlug=${encodeURIComponent(orgSlug)}&mailroomSlug=${encodeURIComponent(mailroomSlug)}`
+        : "get-residents",
+    acLabel: "Resident",
+    displayOption: (resident: Resident) =>
+      `${resident.last_name}, ${resident.first_name}`,
     record,
     setRecord: (newRecord) => {
       setRecord(newRecord);
       if (!newRecord) setCarrier(null);
     },
     setLoaded: () => {},
-    headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined
+    headers: session
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : undefined,
   };
 
   return (
     <div className="w-full max-w-2xl h-full relative flex flex-col">
-      <h2 className="text-xl font-medium text-[#471803] mb-2">Register Package</h2>
+      <h2 className="text-xl font-medium text-[#471803] mb-2">
+        Register Package
+      </h2>
 
       {!addingPackage && (
         <div className="space-y-8">
@@ -159,12 +169,18 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
                 </label>
                 <RadioGroup
                   value={carrier || ""}
-                  onValueChange={(value) => setCarrier(value as typeof carriers[number])}
+                  onValueChange={(value) =>
+                    setCarrier(value as (typeof carriers)[number])
+                  }
                   className="grid grid-cols-3 gap-4"
                 >
                   {carriers.map((c) => (
                     <div key={c} className="flex items-center space-x-2">
-                      <RadioGroupItem value={c} id={c} className="border-[#471803] text-[#471803]" />
+                      <RadioGroupItem
+                        value={c}
+                        id={c}
+                        className="border-[#471803] text-[#471803]"
+                      />
                       <label
                         htmlFor={c}
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-[#471803]"
@@ -216,7 +232,9 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
               <span className="flex-1 text-sm text-[#471803]">
                 #{alert.packageId} - {alert.Last}, {alert.First}
                 <br />
-                <span className="text-xs italic">Make sure to write this on the package</span>
+                <span className="text-xs italic">
+                  Make sure to write this on the package
+                </span>
               </span>
               <button
                 onClick={() => dismissAlert(alert.id)}
@@ -238,10 +256,7 @@ export default function Register({ orgSlug, mailroomSlug }: MailroomTabProps) {
         </button>
       </div>
 
-      <ReportName
-        open={noName}
-        handleClose={() => setNoName(false)}
-      />
+      <ReportName open={noName} handleClose={() => setNoName(false)} />
     </div>
   );
-} 
+}
