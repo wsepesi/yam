@@ -3,6 +3,56 @@ import { Package, PackageNoIds } from '@/lib/types';
 
 import { createAdminClient } from '@/lib/supabase';
 import getUserId from '@/lib/handleSession';
+import { waitUntil } from '@vercel/functions';
+
+// Create the email sending function for background processing
+async function sendEmailInBackground(
+  emailPayload: {
+    recipientEmail: string;
+    recipientFirstName: string;
+    packageId: string;
+    provider: string;
+    mailroomHoursString: string;
+    additionalText: string;
+    adminEmail: string;
+    fromEmail: string;
+    fromPass: string;
+  }, 
+  packageId: string, 
+  recipientEmail: string
+) {
+  try {
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      
+    const response = await fetch(`${baseUrl}/api/send-notification-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(emailPayload),
+    });
+
+    console.log(`Email API response status: ${response.status} for package ${packageId}`);
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+        console.error(`Error response from send-notification-email for package ${packageId}:`, errorData);
+      } catch (parseError) {
+        errorData = { error: "Failed to parse error from send-notification-email" };
+        console.error(`Failed to parse error response for package ${packageId}:`, parseError);
+      }
+      console.error(`Failed to send notification email for package ${packageId}: ${response.status}`, errorData);
+    } else {
+      console.log(`Successfully sent notification email for package ${packageId} to ${recipientEmail}`);
+    }
+  } catch (error) {
+    console.error(`Network or connection error when sending notification email for package ${packageId}:`, error);
+  }
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -136,25 +186,21 @@ export default async function handler(
         fromPass,
       };
 
-      fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/send-notification-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailPayload),
-      })
-      .then(async response => {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Failed to parse error from send-notification-email"}));
-          console.error(`Error triggering send-notification-email for package ${insertedPackage.package_id}: ${response.status}`, errorData);
-        } else {
-          console.log(`Successfully triggered send-notification-email for package ${insertedPackage.package_id}`);
-        }
-      })
-      .catch(error => {
-        console.error(`Network or other error triggering send-notification-email for package ${insertedPackage.package_id}:`, error);
-      });
+      // Send notification email in background using waitUntil
+      console.log(`Attempting to send notification email for package ${insertedPackage.package_id} to ${existingResident.email}`);
       
+      // Use waitUntil to send email asynchronously without blocking the response
+      waitUntil(
+        sendEmailInBackground(
+          emailPayload, 
+          insertedPackage.package_id.toString(), 
+          existingResident.email
+        ).catch(error => {
+          console.error(`Background email error for package ${insertedPackage.package_id}:`, error);
+        })
+      );
+      
+      // Return immediately without waiting for email
       const responsePackage: Package = {
         First: existingResident.first_name,
         Last: existingResident.last_name,

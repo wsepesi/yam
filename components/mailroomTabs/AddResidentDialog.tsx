@@ -56,6 +56,10 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
       setError("Resident ID is required.");
       return;
     }
+    if (!email.trim()) {
+      setError("Email is required.");
+      return;
+    }
     if (!session?.access_token) {
       setError("Authentication required.");
       return;
@@ -172,7 +176,7 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
             />
           </div>
           <div>
-            <Label htmlFor="email" className="text-[#471803]/90 block mb-1.5">Email (optional)</Label>
+            <Label htmlFor="email" className="text-[#471803]/90 block mb-1.5">Email</Label>
             <Input
               id="email"
               type="email"
@@ -202,7 +206,7 @@ export const AddResidentDialog: React.FC<AddResidentDialogProps> = ({
             <Button
               type="submit"
               className="bg-[#471803] hover:bg-[#471803]/90 text-white rounded-none px-4 py-2"
-              disabled={isSubmitting || !firstName || !lastName || !residentId}
+              disabled={isSubmitting || !firstName || !lastName || !residentId || !email}
             >
               {isSubmitting ? 'Adding...' : 'Add Resident'}
             </Button>

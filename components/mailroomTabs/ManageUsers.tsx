@@ -333,7 +333,7 @@ const ManageUsers: React.FC = () => {
       {/* Tables Container */}
       <div className="flex gap-2 w-full">
         {/* Pending Invitations */}
-        <div className="p-6 bg-white border border-[#471803]/20 w-2/5">
+        <div className="p-6 bg-white border border-[#471803]/20 w-2/5 min-w-0">
           <h3 className="text-lg font-medium text-[#471803] mb-4">Invitations</h3>
           
           <div className="h-[30vh] overflow-y-auto">
@@ -347,24 +347,22 @@ const ManageUsers: React.FC = () => {
                 ))}
               </div>
             ) : invitations.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#471803]/20">
+              <div className="w-full">
+                <table className="w-full table-fixed divide-y divide-[#471803]/20">
                   <thead className="bg-white sticky top-0">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
-                      {/* <th className="px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Role</th> */}
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Status</th>
-                      {/* <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Sent</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Expires</th> */}
+                      <th className="w-3/5 px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider truncate">Email</th>
+                      <th className="w-2/5 px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-[#471803]/10">
                     {invitations.map((invitation) => (
                       <tr key={invitation.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{invitation.email}</td>
-                        {/* <td className="px-2 py-4 whitespace-nowrap text-sm text-[#471803] capitalize">{invitation.role}</td> */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                        <td className="w-3/5 px-2 py-4 text-sm text-[#471803] truncate" title={invitation.email}>
+                          {invitation.email}
+                        </td>
+                        <td className="w-2/5 px-2 py-4 text-sm">
+                          <span className={`px-1 py-1 text-xs font-semibold rounded ${
                             invitation.status === 'PENDING' 
                               ? 'bg-yellow-100 text-yellow-800' 
                               : invitation.status === 'RESOLVED' 
@@ -374,8 +372,6 @@ const ManageUsers: React.FC = () => {
                             {invitation.status}
                           </span>
                         </td>
-                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(invitation.created_at)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(invitation.expires_at)}</td> */}
                       </tr>
                     ))}
                   </tbody>
@@ -388,7 +384,7 @@ const ManageUsers: React.FC = () => {
         </div>
         
         {/* Current Users */}
-        <div className="p-6 bg-white border border-[#471803]/20 w-3/5">
+        <div className="p-6 bg-white border border-[#471803]/20 w-3/5 min-w-0">
           <h3 className="text-lg font-medium text-[#471803] mb-4">Current Users</h3>
           
           <div className="h-[30vh] overflow-y-auto">
@@ -403,25 +399,25 @@ const ManageUsers: React.FC = () => {
                 ))}
               </div>
             ) : users.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#471803]/20">
+              <div className="w-full">
+                <table className="w-full table-fixed divide-y divide-[#471803]/20">
                   <thead className="bg-white sticky top-0">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Email</th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Role</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Joined</th>
-                      <th className="pl-3 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider"></th>
+                      <th className="w-2/5 px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider truncate">Email</th>
+                      <th className="w-1/5 px-1 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Role</th>
+                      <th className="w-1/5 px-2 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider">Joined</th>
+                      <th className="w-1/5 px-1 py-3 text-left text-xs font-medium text-[#471803]/70 uppercase tracking-wider"></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-[#471803]/10">
                     {users.map((user) => (
                       <tr key={user.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">
+                        <td className="w-2/5 px-2 py-4 text-sm text-[#471803] truncate" title={user.email || "N/A"}>
                           {user.email || "N/A"}
                         </td>
-                        <td className="px-2 py-4 whitespace-nowrap text-sm text-[#471803] capitalize">{user.role}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#471803]">{formatDate(user.created_at)}</td>
-                        <td className="pl-3 py-4 whitespace-nowrap text-sm text-[#471803]">
+                        <td className="w-1/5 px-1 py-4 text-sm text-[#471803] capitalize truncate">{user.role}</td>
+                        <td className="w-1/5 px-2 py-4 text-sm text-[#471803] truncate">{formatDate(user.created_at)}</td>
+                        <td className="w-1/5 px-1 py-4 text-sm text-[#471803]">
                           {user.role === 'user' && ( // Only show remove for 'user' role
                             <Button
                               variant="ghost"
