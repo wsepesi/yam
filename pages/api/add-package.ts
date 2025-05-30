@@ -25,6 +25,8 @@ async function sendEmailInBackground(
     const baseUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    console.log(baseUrl, process.env.VERCEL_URL, process.env.NEXT_PUBLIC_APP_URL);
       
     const response = await fetch(`${baseUrl}/api/send-notification-email`, {
       method: 'POST',
