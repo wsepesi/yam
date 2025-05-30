@@ -14,6 +14,47 @@ interface EmailPayload {
   fromPass: string;
 }
 
+// Helper function to format and sort mailroom hours into MTWTFSS order
+function formatAndSortMailroomHours(hoursString: string): string {
+  const dayOrderMap: { [key: string]: number } = {
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+    Sunday: 7,
+  };
+
+  // Split by comma, trim each part, and filter out empty strings resulting from trailing commas etc.
+  const individualDayEntries = hoursString
+    .split('\n')
+    .map(entry => entry.trim())
+    .filter(entry => entry); // Ensure no empty strings proceed
+  
+  const parsedDayDetails: { day: string; hours: string; sortOrder: number }[] = [];
+
+  for (const entry of individualDayEntries) {
+    const match = entry.match(/^(\w+):\s*(.*)$/); // Parses "DayName: Hour Details"
+    if (match) {
+      const dayName = match[1];
+      const hoursDetails = match[2].trim(); // Get the hours part and trim it
+      if (dayOrderMap[dayName]) { // Check if dayName is one of the standard 7 days
+        parsedDayDetails.push({ day: dayName, hours: hoursDetails, sortOrder: dayOrderMap[dayName] });
+      }
+      // else: dayName is not in dayOrderMap (e.g., "Holiday", "Mon", or typo) -> ignore it for strict MTWTFSS output
+    }
+    // else: entry does not match "DayName: Hour Details" format (e.g., "Call for hours") -> ignore it
+  }
+
+  // Sort the successfully parsed day entries by their defined order
+  parsedDayDetails.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Join the sorted and formatted entries with newlines
+  // Example: "Monday: 9 AM - 5 PM\nTuesday: 10 AM - 6 PM"
+  return parsedDayDetails.map(detail => `${detail.day}: ${detail.hours}`).join('\n');
+}
+
 export async function processAndSendNotificationEmail(payload: EmailPayload): Promise<void> {
   const {
     recipientEmail,
@@ -42,7 +83,10 @@ You have a new package (#${packageId}) waiting for you from ${provider}.
 `;
 
   if (mailroomHoursString && mailroomHoursString !== "Not specified.") {
-    emailBody += `\nMailroom Hours:\n${mailroomHoursString}\n`;
+    const formattedHours = formatAndSortMailroomHours(mailroomHoursString);
+    if (formattedHours) { // Only add section if formattedHours is not empty
+        emailBody += `\nMailroom Hours:\n${formattedHours}\n`;
+    }
   }
 
   emailBody += `\nPlease bring your ID to collect it from the mailroom.\n`;
