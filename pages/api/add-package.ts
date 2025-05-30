@@ -19,7 +19,8 @@ async function sendEmailInBackground(
     fromPass: string;
   }, 
   packageId: string, 
-  recipientEmail: string
+  recipientEmail: string,
+  authHeader: string | undefined
 ) {
   try {
     const baseUrl = process.env.VERCEL_URL 
@@ -28,11 +29,17 @@ async function sendEmailInBackground(
 
     console.log(baseUrl, process.env.VERCEL_URL, process.env.NEXT_PUBLIC_APP_URL);
       
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
     const response = await fetch(`${baseUrl}/api/send-notification-email`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: JSON.stringify(emailPayload),
     });
 
@@ -196,7 +203,8 @@ export default async function handler(
         sendEmailInBackground(
           emailPayload, 
           insertedPackage.package_id.toString(), 
-          existingResident.email
+          existingResident.email,
+          authHeader
         ).catch(error => {
           console.error(`Background email error for package ${insertedPackage.package_id}:`, error);
         })
