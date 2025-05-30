@@ -3,63 +3,36 @@ import { Package, PackageNoIds } from '@/lib/types';
 
 import { createAdminClient } from '@/lib/supabase';
 import getUserId from '@/lib/handleSession';
+import { processAndSendNotificationEmail } from './send-notification-email';
 import { waitUntil } from '@vercel/functions';
 
-// Create the email sending function for background processing
-async function sendEmailInBackground(
-  emailPayload: {
-    recipientEmail: string;
-    recipientFirstName: string;
-    packageId: string;
-    provider: string;
-    mailroomHoursString: string;
-    additionalText: string;
-    adminEmail: string;
-    fromEmail: string;
-    fromPass: string;
-  }, 
-  packageId: string, 
-  recipientEmail: string,
-  authHeader: string | undefined
+// Type for the email payload, can be shared or defined here if specific
+interface EmailPayloadForPackage {
+  recipientEmail: string;
+  recipientFirstName: string | null;
+  packageId: string;
+  provider: string;
+  mailroomHoursString: string;
+  additionalText: string | null;
+  adminEmail: string;
+  fromEmail: string;
+  fromPass: string;
+}
+
+// Updated background email sending function
+async function sendEmailDirectlyInBackground(
+  emailPayload: EmailPayloadForPackage,
+  packageId: string,
+  recipientEmail: string
 ) {
   try {
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-    console.log(baseUrl, process.env.VERCEL_URL, process.env.NEXT_PUBLIC_APP_URL);
-      
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    if (authHeader) {
-      headers['Authorization'] = authHeader;
-    }
-
-    const response = await fetch(`${baseUrl}/api/send-notification-email`, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(emailPayload),
-    });
-
-    console.log(`Email API response status: ${response.status} for package ${packageId}`);
-
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-        console.error(`Error response from send-notification-email for package ${packageId}:`, errorData);
-      } catch (parseError) {
-        errorData = { error: "Failed to parse error from send-notification-email" };
-        console.error(`Failed to parse error response for package ${packageId}:`, parseError);
-      }
-      console.error(`Failed to send notification email for package ${packageId}: ${response.status}`, errorData);
-    } else {
-      console.log(`Successfully sent notification email for package ${packageId} to ${recipientEmail}`);
-    }
+    console.log(`Calling processAndSendNotificationEmail directly for package ${packageId}`);
+    // Directly call the imported function
+    await processAndSendNotificationEmail(emailPayload);
+    console.log(`Successfully processed email for package ${packageId} to ${recipientEmail} via direct call`);
   } catch (error) {
-    console.error(`Network or connection error when sending notification email for package ${packageId}:`, error);
+    console.error(`Error calling processAndSendNotificationEmail for package ${packageId}:`, error);
+    // Decide if this error needs to be handled beyond logging for background tasks
   }
 }
 
@@ -200,13 +173,12 @@ export default async function handler(
       
       // Use waitUntil to send email asynchronously without blocking the response
       waitUntil(
-        sendEmailInBackground(
+        sendEmailDirectlyInBackground(
           emailPayload, 
           insertedPackage.package_id.toString(), 
-          existingResident.email,
-          authHeader
+          existingResident.email
         ).catch(error => {
-          console.error(`Background email error for package ${insertedPackage.package_id}:`, error);
+          console.error(`Background email processing error for package ${insertedPackage.package_id}:`, error);
         })
       );
       
