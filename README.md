@@ -8,3 +8,9 @@ for dev:
 pnpm i
 pnpm dev
 ```
+
+for test:
+
+```bash
+pnpm test
+```
