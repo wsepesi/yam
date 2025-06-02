@@ -6,7 +6,8 @@ for dev:
 
 ```bash
 pnpm i
-pnpm dev
+pnpm run build
+pnpm run dev
 ```
 
 for test:
