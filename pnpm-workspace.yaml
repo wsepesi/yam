@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - '@vercel/speed-insights'
+  - cypress
+  - esbuild
+  - msw
+  - sharp
+  - supabase
