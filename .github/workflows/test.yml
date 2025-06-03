@@ -16,9 +16,9 @@ jobs:
           cache: 'pnpm'
       
       - run: pnpm install
-      - run: pnpm build
+      - name: Build Next.js app
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: pnpm build
       - run: pnpm test:ci
-      
-      - uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage/coverage-final.json
