@@ -77,7 +77,6 @@ export function UserTabPage() {
   const [orgDisplayName, setOrgDisplayName] = useState<string>('');
   const [mailroomDisplayName, setMailroomDisplayName] = useState<string>('');
   const [isValidating, setIsValidating] = useState(true);
-  const [activeLoadingTab, setActiveLoadingTab] = useState<TabType>('overview');
 
   // Refs to store previously validated slugs
   const prevOrgSlugRef = useRef<string | undefined>(undefined);
@@ -107,19 +106,22 @@ export function UserTabPage() {
     return tab?.replace(/-/g, ' ');
   }, [tab]);
 
+  // Derived tab for the loading skeleton
+  const tabForLoadingSkeleton = useMemo(() => {
+    if (router.isReady && currentTabValue) {
+      const tabValue = currentTabValue as TabType;
+      if (AVAILABLE_TABS.includes(tabValue)) {
+        return tabValue;
+      }
+    }
+    return 'overview'; // Default to 'overview'
+  }, [router.isReady, currentTabValue, AVAILABLE_TABS]);
+
   // useEffect for org and mailroom validation, and setting display names
   useEffect(() => {
     if (!router.isReady) {
       setIsValidating(true);
       return;
-    }
-
-    // Set activeLoadingTab based on URL for loading state
-    if (router.isReady && currentTabValue) {
-      const tabValue = currentTabValue as TabType;
-      if (AVAILABLE_TABS.includes(tabValue)) {
-        setActiveLoadingTab(tabValue);
-      }
     }
 
     if (!orgSlug || !mailroomSlug) {
@@ -238,11 +240,11 @@ export function UserTabPage() {
                           key={tabName}
                           disabled
                           className={`text-xs px-3 py-2 text-left tracking-wide relative ${
-                            activeLoadingTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                            tabForLoadingSkeleton === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
                           } hover:text-[#471803] transition-colors`}
                         >
                           {tabName}
-                          {activeLoadingTab === tabName && (
+                          {tabForLoadingSkeleton === tabName && (
                             <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
                           )}
                         </button>
@@ -260,11 +262,11 @@ export function UserTabPage() {
                           key={tabName}
                           disabled
                           className={`text-xs px-3 py-2 text-left tracking-wide relative ${
-                            activeLoadingTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                            tabForLoadingSkeleton === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
                           } hover:text-[#471803] transition-colors`}
                         >
                           {tabName}
-                          {activeLoadingTab === tabName && (
+                          {tabForLoadingSkeleton === tabName && (
                             <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
                           )}
                         </button>
@@ -282,11 +284,11 @@ export function UserTabPage() {
                           key={tabName}
                           disabled
                           className={`text-xs px-3 py-2 text-left tracking-wide relative ${
-                            activeLoadingTab === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
+                            tabForLoadingSkeleton === tabName ? 'text-[#471803] font-bold' : 'text-gray-500'
                           } hover:text-[#471803] transition-colors`}
                         >
                           {tabName}
-                          {activeLoadingTab === tabName && (
+                          {tabForLoadingSkeleton === tabName && (
                             <span className="absolute w-full h-[2px] bottom-0 left-0 bg-[#471803]"></span>
                           )}
                         </button>
@@ -305,7 +307,7 @@ export function UserTabPage() {
                   <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 mr-1 border-[#471803]"></div>
                 </h1>
                 <h2 className="text-xl font-semibold text-[#471803] italic relative">
-                  {TAB_CONFIG[activeLoadingTab]?.title || 'Loading...'}
+                  {TAB_CONFIG[tabForLoadingSkeleton]?.title || 'Loading...'}
                   <div className="absolute -bottom-1 right-0 w-[100%] border-b-2 border-[#471803]"></div>
                 </h2>
               </div>
