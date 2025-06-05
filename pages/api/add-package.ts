@@ -17,6 +17,7 @@ interface EmailPayloadForPackage {
   adminEmail: string;
   fromEmail: string;
   fromPass: string;
+  pickupOption: string | null;
 }
 
 // Updated background email sending function
@@ -62,7 +63,7 @@ export default async function handler(
     // Fetch mailroom_id and organization_id based on orgSlug and mailroomSlug
     const { data: mailroomRecord, error: mailroomError } = await supabaseAdmin
       .from('mailrooms')
-      .select('id, organization_id, admin_email, mailroom_hours, email_additional_text') // Select fields needed later
+      .select('id, organization_id, admin_email, mailroom_hours, email_additional_text, pickup_option') // Select fields needed later
       .eq('slug', mailroomSlug)
       .single();
 
@@ -166,6 +167,7 @@ export default async function handler(
         adminEmail,
         fromEmail,
         fromPass,
+        pickupOption: mailroomRecord.pickup_option,
       };
 
       // Send notification email in background using waitUntil

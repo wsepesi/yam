@@ -12,6 +12,7 @@ interface EmailPayload {
   adminEmail: string;
   fromEmail: string;
   fromPass: string;
+  pickupOption: string | null;
 }
 
 // Helper function to format and sort mailroom hours into MTWTFSS order
@@ -66,6 +67,7 @@ export async function processAndSendNotificationEmail(payload: EmailPayload): Pr
     adminEmail,
     fromEmail,
     fromPass,
+    pickupOption,
   } = payload;
 
   if (!recipientEmail || !packageId || !provider || !adminEmail || !fromEmail || !fromPass) {
@@ -89,7 +91,9 @@ You have a new package (#${packageId}) waiting for you from ${provider}.
     }
   }
 
-  emailBody += `\nPlease bring your ID to collect it from the mailroom.\n`;
+  if (pickupOption !== 'resident_name') {
+    emailBody += `\nPlease bring your ID to collect it from the mailroom.\n`;
+  }
 
   if (additionalText) {
     emailBody += `\n${additionalText}\n`;
