@@ -6,6 +6,10 @@ const getUserId = async (supabaseAdmin: SupabaseClient, authHeader: string | und
         throw new Error('Unauthorized: Missing or invalid token')
     }
     const token = authHeader.split(' ')[1];
+    
+    if (!token || token.trim() === '') {
+        throw new Error('Unauthorized: Invalid token')
+    }
 
     const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
     

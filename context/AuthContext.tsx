@@ -47,7 +47,7 @@ type AuthState = {
 };
 
 // Create the context with a default value
-const AuthContext = createContext<AuthState>({
+export const AuthContext = createContext<AuthState>({
   session: null,
   user: null,
   userProfile: null,
