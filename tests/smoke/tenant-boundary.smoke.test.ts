@@ -59,7 +59,7 @@ const createMockSupabaseWithRLS = (currentSession: any) => ({
         })
       }
       return Promise.resolve({ data: null, error: null })
-    })),
+    }),
     then: vi.fn((callback) => {
       // Simulate RLS filtering in queries
       const filteredData = table === 'packages' 

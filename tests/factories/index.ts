@@ -7,6 +7,13 @@ export * from './resident.factory'
 export * from './package.factory'
 export * from './invitation.factory'
 
+// Import factories for use in TestScenarioBuilder
+import { organizationFactory } from './organization.factory'
+import { mailroomFactory } from './mailroom.factory'
+import { userFactory } from './user.factory'
+import { residentFactory } from './resident.factory'
+import { packageFactory } from './package.factory'
+
 // Convenience exports
 export { organizationFactory } from './organization.factory'
 export { mailroomFactory } from './mailroom.factory'

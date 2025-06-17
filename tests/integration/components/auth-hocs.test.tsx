@@ -1,14 +1,16 @@
 // tests/integration/components/auth-hocs.test.tsx
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { useRouter } from 'next/router'
 import React from 'react'
 
 import { AuthProvider, withAuth, UserRole, UserProfile } from '@/context/AuthContext'
 import { withOrgAuth } from '@/components/withOrgAuth'
 
-// Mock modules
-vi.mock('next/router')
+// Mock modules before any imports that might use them
+vi.mock('next/router', () => ({
+  useRouter: vi.fn()
+}))
+
 vi.mock('@/lib/supabase')
 
 // Test component for HOC testing
@@ -29,8 +31,11 @@ const mockRouter = {
 }
 
 describe('Authentication HOCs Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    
+    // Get the mocked useRouter
+    const { useRouter } = await import('next/router')
     vi.mocked(useRouter).mockReturnValue(mockRouter as any)
     
     // Reset localStorage
@@ -69,8 +74,8 @@ describe('Authentication HOCs Integration Tests', () => {
         </AuthProvider>
       )
 
-      // Should show loading initially
-      expect(screen.getByText(/Loading/)).toBeInTheDocument()
+      // Should show loading initially - look for skeleton components
+      expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
 
       // Wait for auth check to complete and redirect
       await waitFor(() => {
@@ -242,8 +247,8 @@ describe('Authentication HOCs Integration Tests', () => {
         </AuthProvider>
       )
 
-      // Should show loading state initially
-      expect(screen.getByText(/Loading/)).toBeInTheDocument()
+      // Should show loading state initially - look for skeleton components
+      expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
       
       // Should not show the test component yet
       expect(screen.queryByTestId('test-component')).not.toBeInTheDocument()
@@ -272,8 +277,8 @@ describe('Authentication HOCs Integration Tests', () => {
         </AuthProvider>
       )
 
-      // Should show loading initially
-      expect(screen.getByText(/Loading/)).toBeInTheDocument()
+      // Should show loading initially - look for skeleton components
+      expect(document.querySelector('.animate-pulse')).toBeInTheDocument()
 
       // Should redirect after timeout (mocked to be faster in tests)
       await waitFor(() => {
@@ -304,6 +309,7 @@ describe('Authentication HOCs Integration Tests', () => {
         ...mockRouter,
         query: { org: 'different-org', mailroom: 'different-mailroom' }
       }
+      const { useRouter } = await import('next/router')
       vi.mocked(useRouter).mockReturnValue(differentOrgRouter as any)
 
       const mockSupabase = await import('@/lib/supabase')

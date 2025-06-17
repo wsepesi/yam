@@ -1,5 +1,5 @@
 // Email service mock for testing notification functionality
-import { vi } from 'vitest'
+import { vi, expect } from 'vitest'
 
 export interface MockEmailOptions {
   to: string

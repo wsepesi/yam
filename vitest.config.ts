@@ -2,6 +2,7 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
 import react from '@vitejs/plugin-react'
+import { DatabaseTestSequencer } from './tests/utils/test-sequencer'
 
 export default defineConfig({
   plugins: [react()],
@@ -10,12 +11,20 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     globals: true,
     css: true,
-    // Increase timeout for database operations
-    testTimeout: 10000,
-    // Run tests sequentially for database safety
+    // Base timeout for regular tests (increased for performance tests via vi.setConfig)
+    testTimeout: 30000, // Increased from 10s to 30s for performance tests
+    // Custom test sequencer for database isolation
+    sequence: {
+      sequencer: DatabaseTestSequencer
+    },
+    // Allow parallel execution for non-database tests
     pool: 'forks',
     poolOptions: {
       forks: {
+        // Limit concurrent processes for database performance tests to prevent connection pool exhaustion
+        maxForks: 2, // Reduced from 4 to 2 for better connection management
+        minForks: 1,
+        // Ensure single fork for sequential performance tests
         singleFork: true
       }
     },

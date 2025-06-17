@@ -86,7 +86,40 @@ const parseCSVFile = (csvContent: string): Student[] => {
       throw new Error('CSV must contain header row and at least one data row')
     }
     
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+    // Improved CSV parsing to handle quoted values with commas
+    const parseCSVLine = (line: string): string[] => {
+      const result: string[] = []
+      let current = ''
+      let inQuotes = false
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+        const nextChar = line[i + 1]
+        
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            // Handle escaped quotes
+            current += '"'
+            i++ // Skip next quote
+          } else {
+            // Toggle quote state
+            inQuotes = !inQuotes
+          }
+        } else if (char === ',' && !inQuotes) {
+          // End of field
+          result.push(current.trim())
+          current = ''
+        } else {
+          current += char
+        }
+      }
+      
+      // Add the last field
+      result.push(current.trim())
+      return result
+    }
+    
+    const headers = parseCSVLine(lines[0])
     const requiredHeaders = ['First_Name', 'Last_Name', 'Default_Email', 'University_ID']
     
     for (const required of requiredHeaders) {
@@ -98,7 +131,7 @@ const parseCSVFile = (csvContent: string): Student[] => {
     const students: Student[] = []
     
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''))
+      const values = parseCSVLine(lines[i])
       
       const student: Student = {
         First_Name: values[headers.indexOf('First_Name')] || '',
@@ -142,13 +175,17 @@ const validateStudentData = (students: Student[]): { valid: Student[], invalid: 
       seenIds.add(student.University_ID)
     }
     
-    // Validate name lengths
+    // Validate required fields and lengths
     if (student.First_Name.length < 1 || student.First_Name.length > 50) {
       errors.push('First name must be 1-50 characters')
     }
     
     if (student.Last_Name.length < 1 || student.Last_Name.length > 50) {
       errors.push('Last name must be 1-50 characters')
+    }
+    
+    if (student.University_ID.length < 1) {
+      errors.push('University ID is required')
     }
     
     if (errors.length > 0) {

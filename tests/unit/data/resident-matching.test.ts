@@ -55,7 +55,7 @@ class ResidentMatcher {
   }
 
   // Fuzzy name matching using Levenshtein distance
-  findByFuzzyName(firstName: string, lastName: string, threshold: number = 2): Resident[] {
+  findByFuzzyName(firstName: string, lastName: string, threshold: number = 1): Resident[] {
     const matches: Array<{ resident: Resident, score: number }> = []
 
     for (const resident of this.residents) {

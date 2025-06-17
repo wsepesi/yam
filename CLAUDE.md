@@ -39,6 +39,10 @@ pnpm test -t "pattern"
 pnpm test:debug
 ```
 
+## Memory Entries
+
+- `pnpm test` does not need a --run suffix
+
 ## Architecture Overview
 
 ### Multi-Tenant Structure
@@ -169,3 +173,12 @@ Follow the guidelines in `claude/useeffect-guidelines.md`:
 - DON'T use Effects for: derived state, user events, state chains
 - DO use Effects for: external systems, data fetching, subscriptions
 - Prefer: calculate during render, event handlers, useMemo for expensive calculations
+
+## Workflow Guidelines
+
+- Always update plan files after doing work
+- After you make code changes, if we are working towards a plan.md file, ALWAYS write your work back and make sure the plan is up to date!
+
+## Tools and Libraries
+
+- To use Supabase, you must run commands with `pnpx supabase ...`

@@ -4,8 +4,8 @@ import { BaseFactory, FactoryUtils } from './base.factory'
 export interface TestUser {
   id: string
   role: 'user' | 'manager' | 'admin' | 'super-admin'
-  organization_id?: string
-  mailroom_id?: string
+  organization_id?: string | null
+  mailroom_id?: string | null
   email: string
   status: 'INVITED' | 'ACTIVE' | 'REMOVED'
   created_at: string

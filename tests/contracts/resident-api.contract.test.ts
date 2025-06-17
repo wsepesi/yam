@@ -45,26 +45,53 @@ describe('Resident API Contract Tests', () => {
         }
       ]
 
-      // Mock Supabase response
+      // Mock Supabase response - need to handle the proper query builder chain
       const mockSupabase = await import('@/lib/supabase')
+      
+      // Create a promise-like object that resolves to the residents data
+      const residentQueryResult = {
+        then: vi.fn((resolve) => resolve({ data: mockResidents, error: null })),
+        catch: vi.fn(),
+        finally: vi.fn()
+      }
+      
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn()
-            .mockResolvedValueOnce({ 
-              data: { id: 'mailroom-id', organization_id: 'org-id' }, 
-              error: null 
-            })
-            .mockResolvedValueOnce({ 
-              data: { id: 'org-id' }, 
-              error: null 
-            }),
-          or: vi.fn().mockResolvedValue({ 
-            data: mockResidents, 
-            error: null 
-          })
-        }))
+        from: vi.fn((table) => {
+          if (table === 'mailrooms') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { id: 'mailroom-id', organization_id: 'org-id' }, 
+                error: null 
+              })
+            }
+          } else if (table === 'organizations') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { id: 'org-id' }, 
+                error: null 
+              })
+            }
+          } else if (table === 'residents') {
+            const queryBuilder = {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              or: vi.fn().mockReturnThis(),
+              then: vi.fn((resolve) => resolve({ data: mockResidents, error: null })),
+              catch: vi.fn(),
+              finally: vi.fn()
+            }
+            // Return the queryBuilder but make it awaitable
+            queryBuilder.select.mockReturnValue(queryBuilder)
+            queryBuilder.eq.mockReturnValue(queryBuilder)
+            queryBuilder.or.mockReturnValue(queryBuilder)
+            return queryBuilder
+          }
+          return {}
+        })
       } as any)
 
       await getResidentsHandler(req, res)
@@ -75,6 +102,7 @@ describe('Resident API Contract Tests', () => {
       // Validate response schema
       expect(responseData).toHaveProperty('records')
       expect(Array.isArray(responseData.records)).toBe(true)
+      expect(responseData.records).toHaveLength(1)
       expect(responseData.records[0]).toMatchObject({
         id: expect.any(String),
         mailroom_id: expect.any(String),
@@ -216,10 +244,10 @@ describe('Resident API Contract Tests', () => {
     })
   })
 
-  describe('DELETE /api/remove-resident', () => {
+  describe('POST /api/remove-resident', () => {
     it('should handle resident removal with correct schema', async () => {
       const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
-        method: 'DELETE',
+        method: 'POST',
         headers: {
           authorization: 'Bearer test-token'
         },
@@ -236,20 +264,25 @@ describe('Resident API Contract Tests', () => {
 
       const mockSupabase = await import('@/lib/supabase')
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn()
-            .mockResolvedValueOnce({ 
-              data: { id: 'mailroom-id', organization_id: 'org-id' }, 
-              error: null 
+        from: vi.fn((table) => {
+          if (table === 'residents') {
+            const queryBuilder = {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { first_name: 'John', last_name: 'Doe' }, 
+                error: null 
+              }),
+              update: vi.fn().mockReturnThis()
+            }
+            // For the update operation, we need to return another object with eq method
+            queryBuilder.update.mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: {}, error: null })
             })
-            .mockResolvedValueOnce({ 
-              data: { id: 'org-id' }, 
-              error: null 
-            }),
-          update: vi.fn().mockResolvedValue({ data: {}, error: null })
-        }))
+            return queryBuilder
+          }
+          return {}
+        })
       } as any)
 
       await removeResidentHandler(req, res)

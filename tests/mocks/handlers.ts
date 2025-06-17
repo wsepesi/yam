@@ -42,7 +42,10 @@ export const handlers = [
     return HttpResponse.json({
       success: true,
       package: newPackage,
-      packageId: newPackage.package_id.toString()
+      packageId: newPackage.package_id.toString(),
+      // Include the First and Last names from the request for the alert display
+      First: body.First,
+      Last: body.Last
     })
   }),
 
@@ -370,6 +373,29 @@ export const handlers = [
 
   http.delete('/api/invitations/:id', ({ params }) => {
     return HttpResponse.json({ success: true })
+  }),
+
+  // Supabase REST API handlers to prevent warnings
+  http.get('http://localhost:54321/rest/v1/organizations', ({ request }) => {
+    const url = new URL(request.url)
+    const select = url.searchParams.get('select')
+    const limit = url.searchParams.get('limit')
+    
+    let orgs = mockData.organizations
+    if (limit) {
+      orgs = orgs.slice(0, parseInt(limit))
+    }
+    
+    if (select === 'id') {
+      orgs = orgs.map(org => ({ id: org.id }))
+    }
+    
+    return HttpResponse.json(orgs)
+  }),
+
+  http.get('http://localhost:54321/rest/v1/*', () => {
+    // Generic handler for other Supabase REST endpoints
+    return HttpResponse.json([])
   })
 ]
 

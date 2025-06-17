@@ -39,17 +39,51 @@ describe('Organization & Mailroom API Contract Tests', () => {
       vi.mocked(mockHandleSession.default).mockResolvedValue('user-id')
 
       const mockSupabase = await import('@/lib/supabase')
+      const mockNewOrg = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'Test University',
+        slug: 'test-university',
+        created_by: 'user-id',
+        status: 'PENDING_SETUP',
+        created_at: '2023-01-01T00:00:00Z'
+      }
+      
+      // Track call count to return different responses for different calls
+      let fromCallCount = 0
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ 
-            data: { role: 'super-admin' }, 
-            error: null 
-          }),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          insert: vi.fn().mockReturnThis()
-        }))
+        from: vi.fn((table) => {
+          fromCallCount++
+          if (table === 'profiles') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { role: 'super-admin' }, 
+                error: null 
+              })
+            }
+          } else if (table === 'organizations') {
+            if (fromCallCount === 2) {
+              // This is the slug check call
+              return {
+                select: vi.fn().mockReturnThis(),
+                eq: vi.fn().mockReturnThis(),
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
+              }
+            } else {
+              // This is the insert call
+              return {
+                insert: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({ 
+                  data: mockNewOrg, 
+                  error: null 
+                })
+              }
+            }
+          }
+          return {}
+        })
       } as any)
 
       await createOrgHandler(req, res)
@@ -182,13 +216,40 @@ describe('Organization & Mailroom API Contract Tests', () => {
       ]
 
       const mockSupabase = await import('@/lib/supabase')
+      const mockOrgsWithCounts = [
+        {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          name: 'Test University',
+          slug: 'test-university',
+          created_at: '2023-01-01T00:00:00Z',
+          status: 'ACTIVE',
+          mailrooms: [{ count: 2 }],
+          profiles: [{ count: 15 }]
+        }
+      ]
+      
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        from: vi.fn(() => ({
-          select: vi.fn().mockResolvedValue({ 
-            data: mockOrganizations, 
-            error: null 
-          })
-        }))
+        from: vi.fn((table) => {
+          if (table === 'profiles') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { role: 'super-admin' }, 
+                error: null 
+              })
+            }
+          } else if (table === 'organizations') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              order: vi.fn().mockResolvedValue({ 
+                data: mockOrgsWithCounts, 
+                error: null 
+              })
+            }
+          }
+          return {}
+        })
       } as any)
 
       await listAllOrgsHandler(req, res)
@@ -196,16 +257,17 @@ describe('Organization & Mailroom API Contract Tests', () => {
       expect(res._getStatusCode()).toBe(200)
       const responseData = JSON.parse(res._getData())
       
-      // Validate response schema
+      // Validate response schema - should match OrganizationListItem interface
       expect(Array.isArray(responseData)).toBe(true)
       if (responseData.length > 0) {
         expect(responseData[0]).toMatchObject({
           id: expect.any(String),
           name: expect.any(String),
           slug: expect.any(String),
+          createdAt: expect.any(String), // Note: formatted as camelCase
           status: expect.any(String),
-          created_at: expect.any(String),
-          created_by: expect.any(String)
+          totalMailrooms: expect.any(Number),
+          totalUsers: expect.any(Number)
         })
       }
     })
@@ -309,19 +371,44 @@ describe('Organization & Mailroom API Contract Tests', () => {
       vi.mocked(mockHandleSession.default).mockResolvedValue('user-id')
 
       const mockSupabase = await import('@/lib/supabase')
+      const mockNewMailroom = {
+        id: '123e4567-e89b-12d3-a456-426614174001',
+        name: 'Test Mailroom',
+        slug: 'test-mailroom',
+        organization_id: '123e4567-e89b-12d3-a456-426614174000',
+        created_by: 'user-id',
+        status: 'ACTIVE',
+        admin_email: 'admin@test.edu',
+        created_at: '2023-01-01T00:00:00Z'
+      }
+      
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ 
-            data: { 
-              role: 'admin',
-              organization_id: '123e4567-e89b-12d3-a456-426614174000'
-            }, 
-            error: null 
-          }),
-          insert: vi.fn().mockReturnThis()
-        }))
+        from: vi.fn((table) => {
+          if (table === 'profiles') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { 
+                  role: 'admin',
+                  organization_id: '123e4567-e89b-12d3-a456-426614174000',
+                  email: 'admin@test.edu'
+                }, 
+                error: null 
+              })
+            }
+          } else if (table === 'mailrooms') {
+            return {
+              insert: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: mockNewMailroom, 
+                error: null 
+              })
+            }
+          }
+          return {}
+        })
       } as any)
 
       await createMailroomHandler(req, res)
@@ -419,19 +506,43 @@ describe('Organization & Mailroom API Contract Tests', () => {
 
       const mockSupabase = await import('@/lib/supabase')
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ 
-            data: { 
-              id: '123e4567-e89b-12d3-a456-426614174001',
-              name: 'Test Mailroom',
-              slug: 'test-mailroom',
-              organization_id: '123e4567-e89b-12d3-a456-426614174000'
-            }, 
-            error: null 
-          })
-        }))
+        from: vi.fn((table) => {
+          if (table === 'profiles') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { 
+                  role: 'admin',
+                  organization_id: '123e4567-e89b-12d3-a456-426614174000'
+                }, 
+                error: null 
+              })
+            }
+          } else if (table === 'organizations') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { id: '123e4567-e89b-12d3-a456-426614174000' }, 
+                error: null 
+              })
+            }
+          } else if (table === 'mailrooms') {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ 
+                data: { 
+                  id: '123e4567-e89b-12d3-a456-426614174001',
+                  organization_id: '123e4567-e89b-12d3-a456-426614174000'
+                }, 
+                error: null 
+              })
+            }
+          }
+          return {}
+        })
       } as any)
 
       await mailroomDetailsHandler(req, res)
@@ -439,12 +550,10 @@ describe('Organization & Mailroom API Contract Tests', () => {
       expect(res._getStatusCode()).toBe(200)
       const responseData = JSON.parse(res._getData())
       
-      // Validate response schema based on expected mailroom details response
+      // Validate response schema - API returns organizationId and mailroomId
       expect(responseData).toMatchObject({
-        id: expect.any(String),
-        name: expect.any(String),
-        slug: expect.any(String),
-        organization_id: expect.any(String)
+        organizationId: expect.any(String),
+        mailroomId: expect.any(String)
       })
     })
   })
@@ -467,21 +576,28 @@ describe('Organization & Mailroom API Contract Tests', () => {
 
       const mockSupabase = await import('@/lib/supabase')
       vi.mocked(mockSupabase.createAdminClient).mockReturnValue({
-        rpc: vi.fn().mockResolvedValue({ 
-          data: { success: true }, 
-          error: null 
+        from: vi.fn((table) => {
+          if (table === 'package_ids') {
+            return {
+              insert: vi.fn().mockResolvedValue({ 
+                data: null, 
+                error: null 
+              })
+            }
+          }
+          return {}
         })
       } as any)
 
       await populatePackageQueueHandler(req, res)
 
-      // Should return success response
-      expect([200, 201]).toContain(res._getStatusCode())
+      // Should return success response - API returns 201 with message
+      expect(res._getStatusCode()).toBe(201)
       
-      if (res._getData()) {
-        const responseData = JSON.parse(res._getData())
-        expect(responseData).toHaveProperty('success')
-      }
+      const responseData = JSON.parse(res._getData())
+      expect(responseData).toMatchObject({
+        message: expect.any(String)
+      })
     })
 
     it('should return 400 for missing mailroomId', async () => {
